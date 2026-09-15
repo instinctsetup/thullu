@@ -1,6 +1,6 @@
 <div align="center">
 
-# ♠ THULLU — The Ultimate Card Elimination Arena
+# ♠ THULL
 
 *A real-time, 4-player multiplayer version of the card game we've been playing with friends for years — now in a browser.*
 
