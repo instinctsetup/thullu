@@ -174,13 +174,13 @@ The full rules ship inside the app itself (registration screen), but in short:
 
 ```
 thullu/
-├── index.html      # All screens: register, lobby, game table, results, error
-├── style1.css      # Felt-table dark UI theme
-├── app1.js         # Game logic (ported from logics.cpp) + Firebase sync + DOM rendering
-├── logics.cpp      # Original C++ prototype — where the rules were designed & tested
-└── images/         # Diagrams referenced in this README
-```
+├── frontend/index.html      # All screens: register, lobby, game table, results, error
+├── frontend/style1.css      # Felt-table dark UI theme
+├── backend/app1.js         # Game logic (ported from logics.cpp) + Firebase sync + DOM rendering
+├── core_engine_logic/logics.cpp      # Original C++ prototype — where the rules were designed & tested
 
+```
+after downloading all files you must have all frontend and backend in same directory
 ---
 
 ## Running it on your own machine
