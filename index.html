@@ -1,0 +1,250 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Thullu Grand Tournament</title>
+    <link rel="stylesheet" href="style1.css">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;800&family=Cinzel:wght@700&display=swap" rel="stylesheet">
+</head>
+
+<body>
+
+    <!-- Top Navigation -->
+    <nav class="top-nav">
+        <div class="nav-logo">♠ THULLU</div>
+
+        <a href="https://github.com/ursthakurmahesh" target="_blank" class="repo-link">
+            <span>⚙</span> GitHub Repository
+        </a>
+    </nav>
+
+    <div id="register-screen" class="container-panel">
+
+        <h1 class="game-title">THULLU</h1>
+        <p class="game-subtitle">The Ultimate Card Elimination Arena</p>
+
+        <div class="rules-card-box">
+            <h3>📜 OFFICIAL TOURNAMENT RULES</h3>
+
+            <div class="rules-scroll-zone">
+                <ol>
+                    <li><strong>Table Capacity:</strong> Exactly 4 players required.</li>
+                    <li><strong>Hand Distribution:</strong> Each player gets 13 cards from a standard 52-card deck.</li>
+                    <li><strong>Rank Hierarchy:</strong> Ace (highest) > K > Q > J > 10 > 9 > 8 > 7 > 6 > 5 > 4 > 3 > 2.</li>
+                    <li><strong>Suit Domains:</strong> Spades (♠), Hearts (♥), Diamonds (♦), Clubs (♣).</li>
+                    <li><strong>Opening Gambit:</strong> The player with the <strong>Ace of Spades (A♠)</strong> leads Round 1.</li>
+                    <li><strong>Elimination Goal:</strong> First player to discard all cards wins Rank 1.</li>
+                    <li><strong>Following Suit:</strong> You must play a card matching the lead suit if you have one.</li>
+                    <li><strong>Trick Clearing:</strong> If everyone follows suit, cards are discarded and highest card holder leads next.</li>
+                    <li><strong>The Rule of Thullu:</strong> If you can't follow suit, play any card. The highest lead-suit card holder picks up ALL table cards!</li>
+                    <li><strong>Rule 10 (Last Stand):</strong> If you empty your hand but lead the next trick, you draw a random card from the player with the most cards.</li>
+                    <li><strong>15-Second Blitz:</strong> You have 15 seconds per move. Timer expiry auto-plays a legal card.</li>
+                    <li><strong>First Round Grace:</strong> Thullu in Round 1 discards table cards safely (no pickup). Ace of Spades holder leads Round 2.</li>
+                </ol>
+            </div>
+        </div>
+
+        <div class="input-form-group">
+            <input type="text" id="username" placeholder="Enter Your Name..." maxlength="12">
+
+            <button id="create-room-btn" class="btn btn-primary">
+                ♣ Create New Table
+            </button>
+
+            <div class="separator-line">
+                <span>OR JOIN EXISTING</span>
+            </div>
+
+            <input type="text" id="room-id-input" placeholder="Enter 6-Letter Room Code..." maxlength="6">
+
+            <button id="join-btn" class="btn btn-success">
+                ♦ Join Table
+            </button>
+        </div>
+
+        <!-- Developer Section -->
+        <div class="developers-section">
+            <div class="developers-heading">
+                <span>⚔</span>
+                <h3>DEVELOPED BY</h3>
+                <span>⚔</span>
+            </div>
+
+            <div class="developers-grid">
+
+                <div class="developer-card">
+                    
+                    <div class="developer-info">
+                        <h4>Mahesh Thakur</h4>
+                        <a href="mailto:hydrogenislove@gmail.com">
+                            hydrogenislove@gmail.com
+                        </a>
+                    </div>
+                </div>
+
+                <div class="developer-card">
+                   
+                    <div class="developer-info">
+                        <h4>Aakash Kushwaha</h4>
+                        <a href="mailto:aakash_2401cb18@iitp.ac.in">
+                            aakash_2401cb18@iitp.ac.in
+                        </a>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+    </div>
+
+    <div id="lobby-screen" class="container-panel hidden">
+
+        <h2>Game Lobby</h2>
+
+        <h1 id="display-room-id">ROOM CODE: ------</h1>
+
+        <div class="lobby-status-card">
+            <p>Waiting for players (<span id="count-lbl">0</span> / 4)...</p>
+            <ul id="player-list"></ul>
+        </div>
+
+        <div id="leader-controls" class="hidden">
+            <p class="leader-notice">👑 You are the Table Leader</p>
+
+            <button id="start-game-btn" class="btn btn-gold hidden">
+                🚀 Start Tournament (4/4 Ready)
+            </button>
+        </div>
+
+        <button id="leave-room-btn" class="btn btn-danger">
+            ✕ Leave Table
+        </button>
+
+    </div>
+
+    <div id="game-screen" class="container-panel wide-theatre hidden">
+
+        <div class="game-top-bar">
+
+            <div id="turn-indicator">
+                WAITING...
+            </div>
+
+            <div id="round-display">
+                <span class="conn-dot" id="conn-dot"></span>
+                <span id="conn-text">Online</span>
+
+                &nbsp;|&nbsp;
+
+                Round:
+                <span id="info-round">1</span>
+            </div>
+
+            <button id="in-game-leave-btn" class="btn btn-danger compact">
+                ✕ Leave
+            </button>
+
+        </div>
+
+        <div class="timer-track-bar">
+            <div id="timer-progress-fluid"></div>
+        </div>
+
+        <div id="table-info">
+            Lead Suit:
+            <span id="info-suit">None</span>
+
+            &nbsp;|&nbsp;
+
+            Highest:
+            <span id="info-val">None</span>
+        </div>
+
+        <div id="thullu-banner" class="hidden"></div>
+
+        <div class="poker-table-canvas">
+
+            <div class="player-slot position-top">
+                <div class="player-badge" id="badge-top">
+                    Empty Seat
+                </div>
+
+                <div class="card-back-count-tray" id="top-cards-count"></div>
+            </div>
+
+            <div class="player-slot position-left">
+                <div class="player-badge" id="badge-left">
+                    Empty Seat
+                </div>
+
+                <div class="card-back-count-tray" id="left-cards-count"></div>
+            </div>
+
+            <div id="center-table">
+                <div class="mat-label">CURRENT TRICK</div>
+                <div id="played-cards-zone"></div>
+            </div>
+
+            <div class="player-slot position-right">
+                <div class="player-badge" id="badge-right">
+                    Empty Seat
+                </div>
+
+                <div class="card-back-count-tray" id="right-cards-count"></div>
+            </div>
+
+            <div class="player-slot position-bottom">
+
+                <div class="player-badge profile-user">
+                    👤 You (<span id="hand-count">0</span> cards)
+                </div>
+
+                <div id="my-cards" class="user-cards-scroll-deck"></div>
+
+            </div>
+
+        </div>
+
+        <div id="rule10-alert" class="hidden"></div>
+
+    </div>
+
+    <div id="results-screen" class="container-panel hidden">
+
+        <h1 class="gold-glow-text">
+            🏆 GAME OVER
+        </h1>
+
+        <div id="podium-ranking-board"></div>
+
+        <button id="return-main-menu-btn" class="btn btn-primary">
+            Return to Menu
+        </button>
+
+    </div>
+
+    <div id="error-screen" class="container-panel hidden">
+
+        <div class="error-icon">⚠️</div>
+
+        <h1 class="error-title" id="error-title">
+            NETWORK ERROR
+        </h1>
+
+        <p class="error-message" id="error-message">
+            Connection to a player was lost. The game has been ended.
+        </p>
+
+        <button id="error-menu-btn" class="btn btn-danger">
+            Return to Menu
+        </button>
+
+    </div>
+
+    <script type="module" src="app1.js"></script>
+
+</body>
+</html>
+
