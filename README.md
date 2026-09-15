@@ -2,6 +2,10 @@
 
 # ♠ THULL
 
+## 🎮 Play Thull
+
+[![Play Live](https://img.shields.io/badge/🎮%20PLAY%20THULLU-Live%20Game-gold?style=for-the-badge)](https://thul-7418c.web.app)
+
 *A real-time, 4-player multiplayer version of the card game we've been playing with friends for years — now in a browser.*
 
 </div>
