@@ -1,6 +1,6 @@
 <div align="center">
 
-# ♠ THULL
+# ♠ A FOUR PLAYER CARD GAME
 
 
 
