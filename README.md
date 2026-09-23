@@ -22,7 +22,7 @@ then using AI we debugged some parts of Js improvised the html and ui feel using
 
 ## 🎮 Play Thull
 
-[![Play Live](https://img.shields.io/badge/🎮%20PLAY%20THULLU-Live%20Game-gold?style=for-the-badge)](https://thul-7418c.web.app)
+[![Play Live](https://img.shields.io/badge/🎮%20PLAY%20THULL-Live%20Game-gold?style=for-the-badge)](https://thul-7418c.web.app)
 
 
 
