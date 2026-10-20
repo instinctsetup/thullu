@@ -222,6 +222,21 @@ function getRandom(pId, gameState) {
     return giverId;
 }
 
+
+// Port completion: when the trick winner emptied their hand (ranked + removed from
+// playingOrder by checkWinner), the lead must pass to the next active player in
+// circular order - the C++ linked_list removal implies this skip.
+function nextActiveAfter(originalOrder, afterId, activeOrder) {
+    const n = originalOrder.length;
+    let i = originalOrder.indexOf(afterId);
+    if (i === -1) return activeOrder[0];
+    for (let k = 1; k <= n; k++) {
+        const cand = originalOrder[(i + k) % n];
+        if (activeOrder.includes(cand)) return cand;
+    }
+    return activeOrder[0];
+}
+
 // ==========================================
 // MOVE ENGINE (identical rules to the original handleCardClick,
 // parameterized so humans AND bots execute the exact same move logic)
@@ -360,8 +375,14 @@ function applyMove(gameState, playersMap, playerId, playerName, cardIndex) {
                 gameState.currHighestVal = -1;
                 gameState.contd = contd;
                 checkWinner(gameState, playersMap);
+                if ((gameState.result || []).length < 2) {
+                    const active = gameState.playingOrder || [];
+                    if (active.length && !active.includes(gameState.currentTurnPlayerId)) {
+                        gameState.currentTurnPlayerId = nextActiveAfter(playingOrder, highestPlayerId, active);
+                    }
+                }
                 let nextLeadHand = gameState.hands[highestPlayerId] || [];
-                if (nextLeadHand.length === 0) {
+                if (nextLeadHand.length === 0 && (gameState.playingOrder || []).includes(highestPlayerId)) {
                     let gId = getRandom(highestPlayerId, gameState);
                     if (gId) {
                         pendingEvents.push(`🎴 Rule 10: ${playersMap[highestPlayerId]?.name || "The next leader"} had no cards, so ${playersMap[gId]?.name || "a player"} handed one over.`);
@@ -389,8 +410,14 @@ function applyMove(gameState, playersMap, playerId, playerName, cardIndex) {
                     gameState.currHighestVal = -1;
                     gameState.contd = contd;
                     checkWinner(gameState, playersMap);
+                    if ((gameState.result || []).length < 2) {
+                        const active = gameState.playingOrder || [];
+                        if (active.length && !active.includes(gameState.currentTurnPlayerId)) {
+                            gameState.currentTurnPlayerId = nextActiveAfter(playingOrder, highestPlayerId, active);
+                        }
+                    }
                     let nextLeadHand = gameState.hands[highestPlayerId] || [];
-                    if (nextLeadHand.length === 0) {
+                    if (nextLeadHand.length === 0 && (gameState.playingOrder || []).includes(highestPlayerId)) {
                         let gId = getRandom(highestPlayerId, gameState);
                         if (gId) {
                             pendingEvents.push(`🎴 Rule 10: ${playersMap[highestPlayerId]?.name || "The next leader"} had no cards, so ${playersMap[gId]?.name || "a player"} handed one over.`);
