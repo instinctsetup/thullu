@@ -1076,6 +1076,11 @@ html.anim-off *, body.anim-off *{
     #turn-indicator{ font-size:1rem; }
 
     #round-summary{ top:auto; bottom:10px; transform:translateX(-50%); }
+
+    /* opponent plaques must fit the 3-up grid columns on phones */
+    .player-badge{ padding:6px 9px; font-size:.62rem; white-space:normal; text-align:center; line-height:1.25; }
+    .card-back-count-tray{ max-width:96px; }
+    .mini-card-back{ width:11px; height:16px; margin-left:-5px; }
 }
 
 @media (max-width:400px){
