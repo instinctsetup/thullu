@@ -265,7 +265,7 @@ function settleTrickState(gameState, playersMap) {
     gameState.currentTurnPlayerId = highestPlayerId;
     gameState.turnInRound = 0;
     gameState.currHighestVal = -1;
-    delete gameState.settling;
+    gameState.settling = null; // null, not delete: Firebase update() removes null children, but ignores missing keys
     checkWinner(gameState, playersMap);
     if ((gameState.result || []).length < 2) {
         const active = gameState.playingOrder || [];
@@ -293,7 +293,7 @@ function scheduleSettle(roomId, settleSeq) {
     const key = `${roomId}:${settleSeq}`;
     if (pendingSettles[key]) return;
     pendingSettles[key] = true;
-    setTimeout(() => settleTrick(roomId, settleSeq), TRICK_PAUSE_MS);
+    setTimeout(() => { delete pendingSettles[key]; settleTrick(roomId, settleSeq); }, TRICK_PAUSE_MS);
 }
 async function settleTrick(roomId, settleSeq) {
     const snapshot = await get(ref(db, `rooms/${roomId}`));

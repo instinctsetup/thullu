@@ -1369,3 +1369,205 @@ html.reduced-anim *, html.reduced-anim *::before, html.reduced-anim *::after{
 .hero-dealer { width: 120px; margin: 0 auto 8px; }
 .hero-dealer:empty { display: none; }
 .stats-line { color: #ffd700; font-weight: 600; margin: 10px 0 4px; text-align: center; }
+
+/* ============================================================
+   VICE CITY THEME - 80s Miami neon override layer
+   ============================================================ */
+html[data-theme="vicecity"] {
+    --vc-pink: #ff2e88;
+    --vc-cyan: #00e5ff;
+    --vc-purple: #2d0a4e;
+    --vc-deep: #12021f;
+    --vc-gold: #ffd700;
+    --vc-sunset: linear-gradient(180deg, #1a0533 0%, #2d0a4e 45%, #7a1e63 70%, #ff2e88 100%);
+}
+
+html[data-theme="vicecity"] body {
+    background: var(--vc-sunset) fixed;
+    color: #f5e9ff;
+    font-family: 'Montserrat', sans-serif;
+}
+html[data-theme="vicecity"] body::before {
+    content: ""; position: fixed; left: -25%; right: -25%; bottom: 0; height: 38%;
+    background:
+        linear-gradient(rgba(0,229,255,0.28) 1.5px, transparent 1.5px),
+        linear-gradient(90deg, rgba(0,229,255,0.28) 1.5px, transparent 1.5px);
+    background-size: 52px 52px;
+    transform: perspective(340px) rotateX(63deg);
+    transform-origin: bottom;
+    pointer-events: none; z-index: 0;
+    animation: gridScroll 2.4s linear infinite;
+}
+html[data-theme="vicecity"] body::after {
+    content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 60;
+    background: repeating-linear-gradient(0deg, rgba(0,0,0,0.13) 0 2px, transparent 2px 4px);
+    opacity: .5;
+}
+html[data-theme="vicecity"] .top-nav {
+    background: rgba(18, 2, 31, 0.85);
+    border-bottom: 2px solid var(--vc-pink);
+    box-shadow: 0 2px 24px rgba(255, 46, 136, 0.35);
+    backdrop-filter: blur(8px);
+}
+html[data-theme="vicecity"] .nav-logo {
+    background: linear-gradient(180deg, #fff 15%, #7df9ff 45%, #ff2e88 80%);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    filter: drop-shadow(0 0 12px rgba(255,46,136,.8));
+    letter-spacing: 0.14em; font-weight: 800;
+}
+html[data-theme="vicecity"] .icon-btn,
+html[data-theme="vicecity"] .repo-link {
+    background: rgba(45, 10, 78, 0.8); border: 1px solid var(--vc-cyan);
+    box-shadow: 0 0 10px rgba(0,229,255,0.35);
+}
+html[data-theme="vicecity"] .game-title,
+html[data-theme="vicecity"] .gold-glow-text {
+    background: linear-gradient(180deg, #ffffff 18%, #7df9ff 42%, #ff2e88 72%, #b3005e 100%);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    filter: drop-shadow(0 0 22px rgba(255,46,136,.65));
+    letter-spacing: 0.16em;
+}
+html[data-theme="vicecity"] .game-subtitle { color: #7df9ff; text-shadow: 0 0 12px rgba(0,229,255,.6); }
+html[data-theme="vicecity"] .entry-card,
+html[data-theme="vicecity"] .lobby-status-card,
+html[data-theme="vicecity"] .modal-box,
+html[data-theme="vicecity"] .how-to-play {
+    background: rgba(18, 2, 31, 0.82);
+    border: 1px solid rgba(0, 229, 255, 0.4);
+    box-shadow: 0 0 30px rgba(255, 46, 136, 0.22), inset 0 0 60px rgba(45, 10, 78, 0.6);
+    backdrop-filter: blur(10px);
+}
+html[data-theme="vicecity"] .btn {
+    border-radius: 10px; font-weight: 700; letter-spacing: 0.06em;
+    transition: transform .16s ease, box-shadow .16s ease;
+}
+html[data-theme="vicecity"] .btn:hover { transform: translateY(-2px) scale(1.02); }
+html[data-theme="vicecity"] .btn-primary {
+    background: linear-gradient(135deg, #ff2e88, #b3005e);
+    box-shadow: 0 0 18px rgba(255,46,136,0.55); border: 1px solid #ff7ab8;
+}
+html[data-theme="vicecity"] .btn-success {
+    background: linear-gradient(135deg, #00e5ff, #0080aa);
+    box-shadow: 0 0 18px rgba(0,229,255,0.5); border: 1px solid #7df9ff; color: #062033;
+}
+html[data-theme="vicecity"] .btn-secondary {
+    background: linear-gradient(135deg, #7a1e63, #2d0a4e);
+    box-shadow: 0 0 18px rgba(122,30,99,0.6); border: 1px solid #c66bb3;
+}
+html[data-theme="vicecity"] .btn-gold {
+    background: linear-gradient(135deg, #ffd700, #ff9a3d);
+    color: #3a2400; box-shadow: 0 0 22px rgba(255,215,0,0.55); border: 1px solid #ffe97a;
+}
+html[data-theme="vicecity"] .btn-danger {
+    background: linear-gradient(135deg, #b3005e, #5e0031);
+    border: 1px solid #ff2e88;
+}
+html[data-theme="vicecity"] .btn-outline { border: 1px solid var(--vc-cyan); color: var(--vc-cyan); background: transparent; }
+
+html[data-theme="vicecity"] .poker-table-canvas {
+    background:
+        radial-gradient(ellipse at center, rgba(122, 30, 99, 0.55) 0%, rgba(18, 2, 31, 0.9) 75%);
+    border: 3px solid var(--vc-pink);
+    border-radius: 46% / 40%;
+    box-shadow: 0 0 60px rgba(255, 46, 136, 0.35), inset 0 0 90px rgba(0, 0, 0, 0.75);
+}
+html[data-theme="vicecity"] #center-table {
+    background: rgba(18, 2, 31, 0.65);
+    border: 1px dashed rgba(0, 229, 255, 0.5);
+    box-shadow: inset 0 0 40px rgba(0,229,255,0.12);
+}
+html[data-theme="vicecity"] .mat-label { color: #7df9ff; letter-spacing: 0.3em; text-transform: uppercase; }
+html[data-theme="vicecity"] .player-badge {
+    background: rgba(18, 2, 31, 0.9); border: 1px solid rgba(0,229,255,0.45);
+    color: #d8f9ff; box-shadow: 0 0 12px rgba(0,229,255,0.25);
+}
+html[data-theme="vicecity"] .player-badge.active-turn {
+    border-color: var(--vc-gold); color: var(--vc-gold);
+    box-shadow: 0 0 22px rgba(255,215,0,0.65);
+    animation: badgePulse 1.2s ease-in-out infinite;
+}
+@keyframes badgePulse { 50% { box-shadow: 0 0 34px rgba(255,215,0,0.95); } }
+
+/* Cards: 3D flip-in + hover tilt */
+html[data-theme="vicecity"] .card-item {
+    background: linear-gradient(160deg, #fdf6ff 0%, #e8d9ff 100%);
+    border: 1px solid #c9a8ff;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.55);
+    transform-style: preserve-3d;
+    animation: cardFlipIn .45s cubic-bezier(.2,.9,.3,1.4);
+}
+@keyframes cardFlipIn {
+    from { transform: rotateY(92deg) translateY(-18px); opacity: 0; }
+    to { transform: rotateY(0) translateY(0); opacity: 1; }
+}
+html[data-theme="vicecity"] .card-item.playable {
+    border-color: var(--vc-cyan);
+    box-shadow: 0 0 20px rgba(0, 229, 255, 0.65), 0 6px 18px rgba(0,0,0,.55);
+}
+html[data-theme="vicecity"] .card-item.playable:hover {
+    transform: translateY(-16px) rotateX(14deg) scale(1.07);
+    box-shadow: 0 0 34px rgba(0, 229, 255, 0.95), 0 18px 30px rgba(0,0,0,.6);
+}
+html[data-theme="vicecity"] .played-card-container { animation: cardTravel .5s cubic-bezier(.2,.8,.3,1.2); }
+@keyframes cardTravel {
+    from { transform: translateY(46px) rotateY(70deg) scale(1.15); opacity: 0; }
+    to { transform: translateY(0) rotateY(0) scale(1); opacity: 1; }
+}
+html[data-theme="vicecity"] .played-player-tag { color: #7df9ff; text-shadow: 0 0 8px rgba(0,229,255,.7); }
+
+html[data-theme="vicecity"] #turn-indicator {
+    text-shadow: 0 0 16px currentColor; letter-spacing: 0.12em;
+}
+html[data-theme="vicecity"] .timer-track-bar { background: rgba(18,2,31,0.8); border: 1px solid rgba(255,46,136,0.5); }
+html[data-theme="vicecity"] #timer-progress-fluid {
+    background: linear-gradient(90deg, #00e5ff, #ff2e88, #ffd700);
+    box-shadow: 0 0 14px rgba(255,46,136,0.8);
+}
+html[data-theme="vicecity"] .info-chip {
+    background: rgba(18,2,31,0.85); border: 1px solid rgba(0,229,255,0.4);
+    color: #d8f9ff; box-shadow: 0 0 10px rgba(0,229,255,0.2);
+}
+html[data-theme="vicecity"] #thullu-banner {
+    background: linear-gradient(135deg, #ff2e88, #b3005e);
+    border: 2px solid #ffd700;
+    box-shadow: 0 0 40px rgba(255,46,136,0.8);
+    animation: thulluFlash .5s ease infinite alternate;
+}
+@keyframes thulluFlash { from { box-shadow: 0 0 26px rgba(255,46,136,.6); } to { box-shadow: 0 0 60px rgba(255,215,0,.9); } }
+html[data-theme="vicecity"] .mini-card-back {
+    background: linear-gradient(135deg, #2d0a4e, #7a1e63);
+    border: 1px solid var(--vc-pink); box-shadow: 0 0 8px rgba(255,46,136,.4);
+}
+html[data-theme="vicecity"] .score-row.active {
+    border-color: var(--vc-gold); box-shadow: 0 0 14px rgba(255,215,0,0.5);
+}
+html[data-theme="vicecity"] .podium-slot {
+    background: rgba(18,2,31,0.85); border: 1px solid rgba(255,215,0,0.5);
+    box-shadow: 0 0 24px rgba(255,215,0,0.25);
+}
+html[data-theme="vicecity"] input[type="text"],
+html[data-theme="vicecity"] select {
+    background: rgba(18, 2, 31, 0.85); border: 1px solid rgba(0,229,255,0.45);
+    color: #eafcff; border-radius: 8px;
+}
+html[data-theme="vicecity"] input[type="text"]:focus,
+html[data-theme="vicecity"] select:focus {
+    outline: none; border-color: var(--vc-pink); box-shadow: 0 0 14px rgba(255,46,136,0.55);
+}
+html[data-theme="vicecity"] .developer-card {
+    background: rgba(18,2,31,0.8); border: 1px solid rgba(0,229,255,0.35);
+}
+html[data-theme="vicecity"] .developer-avatar {
+    background: linear-gradient(135deg, #ff2e88, #00e5ff); color: #12021f;
+}
+html[data-theme="vicecity"] .slider { background: rgba(0,229,255,0.2); border: 1px solid rgba(0,229,255,0.5); }
+html[data-theme="vicecity"] input:checked + .slider { background: var(--vc-pink); }
+html[data-theme="vicecity"] #round-summary,
+html[data-theme="vicecity"] #rule10-alert {
+    background: rgba(18,2,31,0.92); border: 1px solid var(--vc-gold);
+    color: #ffe97a; box-shadow: 0 0 24px rgba(255,215,0,0.35);
+}
+html[data-theme="vicecity"] .emote-btn {
+    background: rgba(18,2,31,0.8); border: 1px solid rgba(0,229,255,0.4);
+    box-shadow: 0 0 10px rgba(0,229,255,0.25);
+}
