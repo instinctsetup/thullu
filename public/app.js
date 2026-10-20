@@ -1086,11 +1086,24 @@ function listenToRoom(roomId) {
 
         if (room.status === "playing") {
             if (connectedHumans(room).length < 1) {
-                update(ref(db, `rooms/${roomId}`), {
-                    status: "disbanded",
-                    disbandReason: `All players left the table. The game has ended.`,
-                    disbandType: "network"
-                });
+                // Grace period: a client that is itself mid-disconnect can observe the
+                // all-humans-gone state right before dying - disbanding then would kill
+                // a room the player intends to rejoin. Re-check after 20s; if this tab
+                // is the one dying, its timer never fires and the room stays resumable.
+                const snapSeq = (room.gameState && room.gameState.eventSeq) || 0;
+                setTimeout(async () => {
+                    try {
+                        const fresh = await get(ref(db, `rooms/${roomId}`));
+                        const r = fresh.val();
+                        if (r && r.status === "playing" && connectedHumans(r).length < 1 && ((r.gameState || {}).eventSeq || 0) === snapSeq) {
+                            await update(ref(db, `rooms/${roomId}`), {
+                                status: "disbanded",
+                                disbandReason: `All players left the table. The game has ended.`,
+                                disbandType: "network"
+                            });
+                        }
+                    } catch (e) { /* room already gone or rejoined */ }
+                }, 20000);
                 return;
             }
             showScreen("game");
