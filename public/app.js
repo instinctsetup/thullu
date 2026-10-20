@@ -875,7 +875,7 @@ async function startGameWithBots(roomId) {
     if (playersList.length < 1 || playersList.length > 4) return;
 
     // AI fills every empty seat (user requirement: works with 1-4 humans)
-    const botNames = ["Chintu 🤖", "Monty 🤖", "Bablu 🤖"];
+    const botNames = ["Chintu", "Monty", "Bablu"];
     let seatCursor = playersList.length;
     let botNum = 0;
     while (playersList.length < 4) {
