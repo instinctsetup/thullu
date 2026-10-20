@@ -1832,3 +1832,27 @@ html[data-theme="vicecity"] #error-screen::after{
 }
 html[data-theme="vicecity"] #results-screen,
 html[data-theme="vicecity"] #error-screen{ overflow:hidden; }
+
+/* ---- fix: opponent plaques overlapping on narrow phones ---- */
+@media (max-width:650px){
+    .poker-table-canvas{
+        grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1fr);
+        gap:6px;
+        padding-left:8px; padding-right:8px;
+    }
+    .player-slot{ min-width:0; }
+    .player-badge{
+        max-width:100%; min-height:0;
+        padding:5px 6px; font-size:.6rem; letter-spacing:0;
+        white-space:normal; line-height:1.2; text-align:center;
+    }
+    .card-back-count-tray{ max-width:84px; }
+}
+@media (max-width:400px){
+    .player-badge{ font-size:.55rem; padding:4px 5px; }
+    .card-back-count-tray{ max-width:72px; }
+    .mini-card-back{ width:10px; height:14px; margin-left:-5px; }
+}
+@media (max-width:650px){
+    html[data-theme="vicecity"] .poker-table-canvas{ border-radius:26px; padding-top:14px; }
+}
