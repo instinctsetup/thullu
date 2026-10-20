@@ -1,0 +1,25 @@
+{
+  "rules": {
+    "rooms": {
+      "$roomId": {
+        ".read": "auth != null",
+        ".write": "auth != null",
+        ".validate": "newData.hasChildren(['roomId', 'status', 'hostId'])",
+        "roomId": { ".validate": "newData.isString() && newData.val().length === 6" },
+        "status": { ".validate": "newData.isString() && (newData.val() === 'waiting' || newData.val() === 'playing' || newData.val() === 'disbanded')" },
+        "hostId": { ".validate": "newData.isString()" },
+        "disbandReason": { ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 200)" },
+        "disbandType": { ".validate": "!newData.exists() || newData.isString()" },
+        "solo": { ".validate": "!newData.exists() || newData.isBoolean()" },
+        "players": {
+          "$pid": {
+            ".validate": "newData.hasChildren(['id', 'name', 'seat']) && newData.child('name').isString() && newData.child('name').val().length <= 24 && newData.child('seat').isNumber()"
+          }
+        },
+        "gameState": { ".validate": "newData.hasChildren(['playingOrder', 'hands'])" },
+        "$other": { ".validate": true }
+      }
+    },
+    "$other": { ".read": false, ".write": false }
+  }
+}

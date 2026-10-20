@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="felt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0d2812">
+<meta name="description" content="Thullu — real-time 4-player card elimination game. Follow suit, dodge the pile, empty your hand first.">
+<title>Thullu — Grand Tournament</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&family=Cinzel:wght@600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- ============ TOP NAVIGATION ============ -->
+<nav class="top-nav">
+    <div class="nav-logo">♠ THULLU</div>
+
+    <div class="nav-actions">
+        <button type="button" id="scoreboard-btn" class="icon-btn" aria-label="Open live scoreboard" title="Live Scoreboard">🏆</button>
+        <button type="button" id="mute-btn" class="icon-btn" aria-label="Mute sound" aria-pressed="false" title="Mute / Unmute">🔊</button>
+        <button type="button" id="settings-btn" class="icon-btn" aria-label="Open settings" title="Settings">⚙️</button>
+        <a href="https://github.com/ursthakurmahesh" target="_blank" rel="noopener" class="repo-link">
+            <span aria-hidden="true">⌘</span><span class="repo-link-text">GitHub</span>
+        </a>
+    </div>
+</nav>
+
+<!-- ============ SETTINGS MODAL ============ -->
+<div id="settings-panel" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="settings-title">
+    <div class="modal-box">
+        <div class="modal-header">
+            <h3 id="settings-title">⚙ Settings</h3>
+            <button type="button" class="modal-close-btn" id="settings-close-btn" aria-label="Close settings">✕</button>
+        </div>
+        <div class="modal-body">
+            <div class="setting-row">
+                <label for="sound-toggle">🔊 Sound Effects</label>
+                <label class="switch">
+                    <input type="checkbox" id="sound-toggle" checked>
+                    <span class="slider" aria-hidden="true"></span>
+                </label>
+            </div>
+            <div class="setting-row">
+                <label for="anim-toggle">✨ Animations</label>
+                <label class="switch">
+                    <input type="checkbox" id="anim-toggle" checked>
+                    <span class="slider" aria-hidden="true"></span>
+                </label>
+            </div>
+            <div class="setting-row">
+                <label for="theme-select">🎨 Table Theme</label>
+                <select id="theme-select">
+                    <option value="felt">Felt Green</option>
+                    <option value="midnight">Midnight</option>
+                    <option value="light">Light</option>
+                </select>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ============ SCOREBOARD MODAL ============ -->
+<div id="scoreboard-panel" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="scoreboard-title">
+    <div class="modal-box">
+        <div class="modal-header">
+            <h3 id="scoreboard-title">🏆 Live Standings</h3>
+            <button type="button" class="modal-close-btn" id="scoreboard-close-btn" aria-label="Close scoreboard">✕</button>
+        </div>
+        <div class="modal-body">
+            <ul class="scoreboard-list" id="scoreboard-list">
+                <li class="scoreboard-empty">Standings will appear once the round begins.</li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<!-- ============ REGISTER / ONBOARDING ============ -->
+<div id="register-screen" class="container-panel">
+
+    <header class="hero-header">
+        <div class="hero-emblem" aria-hidden="true">♠ ♥ ♣ ♦</div>
+        <h1 class="game-title">THULLU</h1>
+        <p class="game-subtitle">Follow suit, dodge the pile, be the first to empty your hand.</p>
+    </header>
+
+    <div class="entry-card">
+        <div class="input-form-group">
+            <label class="field-label" for="username">Your Name</label>
+            <input type="text" id="username" placeholder="Enter your name..." maxlength="12" autocomplete="off">
+
+            <button type="button" id="create-room-btn" class="btn btn-primary">
+                <span class="btn-icon">♣</span> Create New Table
+            </button>
+
+            <div class="separator-line"><span>or join existing</span></div>
+
+            <label class="field-label" for="room-id-input">Room Code</label>
+            <input type="text" id="room-id-input" placeholder="Enter 6-letter code..." maxlength="6" autocomplete="off">
+
+            <button type="button" id="join-btn" class="btn btn-success">
+                <span class="btn-icon">♦</span> Join Table
+            </button>
+
+            <div class="separator-line"><span>or practice solo</span></div>
+
+            <button type="button" id="solo-btn" class="btn btn-secondary">
+                <span class="btn-icon">🤖</span> Play vs AI
+            </button>
+        </div>
+
+        <div id="rejoin-panel" class="rejoin-panel">
+            <p class="rejoin-label">🔄 Got disconnected? Rejoin your table</p>
+            <div class="rejoin-row">
+                <input type="text" id="rejoin-code-input" placeholder="Room code" maxlength="6" autocomplete="off">
+                <button type="button" id="rejoin-btn" class="btn btn-outline">Rejoin</button>
+            </div>
+        </div>
+    </div>
+
+    <details class="how-to-play">
+        <summary>📜 How to Play — Official Tournament Rules</summary>
+        <div class="rules-scroll-zone">
+            <ol>
+                <li><strong>Table Capacity:</strong> Exactly 4 players required.</li>
+                <li><strong>Hand Distribution:</strong> Each player gets 13 cards from a standard 52-card deck.</li>
+                <li><strong>Rank Hierarchy:</strong> Ace (highest) &gt; K &gt; Q &gt; J &gt; 10 &gt; 9 &gt; 8 &gt; 7 &gt; 6 &gt; 5 &gt; 4 &gt; 3 &gt; 2.</li>
+                <li><strong>Suit Domains:</strong> Spades (♠), Hearts (♥), Diamonds (♦), Clubs (♣).</li>
+                <li><strong>Opening Gambit:</strong> The player with the <strong>Ace of Spades (A♠)</strong> leads Round 1.</li>
+                <li><strong>Elimination Goal:</strong> First player to discard all cards wins Rank 1.</li>
+                <li><strong>Following Suit:</strong> You must play a card matching the lead suit if you have one.</li>
+                <li><strong>Trick Clearing:</strong> If everyone follows suit, cards are discarded and the highest card holder leads next.</li>
+                <li><strong>The Rule of Thullu:</strong> If you can't follow suit, play any card. The highest lead-suit card holder picks up ALL table cards!</li>
+                <li><strong>Rule 10 (Last Stand):</strong> If you empty your hand but lead the next trick, you draw a random card from the player with the most cards.</li>
+                <li><strong>15-Second Blitz:</strong> You have 15 seconds per move. Timer expiry auto-plays a legal card.</li>
+                <li><strong>First Round Grace:</strong> Thullu in Round 1 discards table cards safely (no pickup). Ace of Spades holder leads Round 2.</li>
+            </ol>
+        </div>
+    </details>
+
+    <div class="developers-section">
+        <div class="developers-heading">
+            <span>⚔</span>
+            <h3>DEVELOPED BY</h3>
+            <span>⚔</span>
+        </div>
+
+        <div class="developers-grid">
+            <div class="developer-card">
+                <div class="developer-avatar">MT</div>
+                <div class="developer-info">
+                    <h4>Mahesh Thakur</h4>
+                    <span class="developer-role">Game Engineer</span>
+                </div>
+            </div>
+
+            <div class="developer-card">
+                <div class="developer-avatar">AK</div>
+                <div class="developer-info">
+                    <h4>Aakash Kushwaha</h4>
+                    <span class="developer-role">Game Engineer</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<!-- ============ LOBBY ============ -->
+<div id="lobby-screen" class="container-panel hidden">
+
+    <h2 class="screen-heading">Game Lobby</h2>
+
+    <div class="room-code-display">
+        <h1 id="display-room-id">ROOM CODE: ------</h1>
+    </div>
+
+    <div class="lobby-status-card">
+        <p class="lobby-count-line">Waiting for players (<span id="count-lbl">0</span> / 4)...</p>
+        <ul id="player-list"></ul>
+    </div>
+
+    <div id="leader-controls" class="hidden">
+        <p class="leader-notice">👑 You are the Table Leader</p>
+        <button type="button" id="start-game-btn" class="btn btn-gold hidden">
+            🚀 Start Tournament (4/4 Ready)
+        </button>
+    </div>
+
+    <button type="button" id="leave-room-btn" class="btn btn-danger">
+        ✕ Leave Table
+    </button>
+
+</div>
+
+<!-- ============ GAME TABLE ============ -->
+<div id="game-screen" class="container-panel wide-theatre hidden">
+
+    <div class="game-top-bar">
+        <div id="turn-indicator" aria-live="polite">WAITING...</div>
+
+        <div id="round-display">
+            <span class="conn-dot" id="conn-dot"></span>
+            <span id="conn-text">Online</span>
+            <span class="sep-dot">•</span>
+            Round <span id="info-round">1</span>
+        </div>
+
+        <button type="button" id="in-game-leave-btn" class="btn btn-danger compact">
+            ✕ Leave
+        </button>
+    </div>
+
+    <div class="timer-track-bar">
+        <div id="timer-progress-fluid"></div>
+    </div>
+
+    <div id="table-info">
+        <span class="info-chip">Lead Suit: <span id="info-suit">None</span></span>
+        <span class="info-chip">Highest: <span id="info-val">None</span></span>
+    </div>
+
+    <div id="thullu-banner" class="hidden" aria-live="assertive"></div>
+    <div id="round-summary" class="hidden" role="status" aria-live="polite"></div>
+
+    <div class="poker-table-canvas">
+
+        <div class="player-slot position-top">
+            <div class="player-badge" id="badge-top">Empty Seat</div>
+            <div class="card-back-count-tray" id="top-cards-count"></div>
+        </div>
+
+        <div class="player-slot position-left">
+            <div class="player-badge" id="badge-left">Empty Seat</div>
+            <div class="card-back-count-tray" id="left-cards-count"></div>
+        </div>
+
+        <div id="center-table">
+            <div class="mat-label">Current Trick</div>
+            <div id="played-cards-zone"></div>
+        </div>
+
+        <div class="player-slot position-right">
+            <div class="player-badge" id="badge-right">Empty Seat</div>
+            <div class="card-back-count-tray" id="right-cards-count"></div>
+        </div>
+
+        <div class="player-slot position-bottom">
+            <div class="player-badge profile-user">
+                👤 You (<span id="hand-count">0</span> cards)
+            </div>
+            <div id="my-cards" class="user-cards-scroll-deck"></div>
+        </div>
+
+    </div>
+
+    <div id="rule10-alert" class="hidden"></div>
+
+</div>
+
+<!-- ============ RESULTS ============ -->
+<div id="results-screen" class="container-panel hidden">
+
+    <h1 class="gold-glow-text">🏆 GAME OVER</h1>
+
+    <div id="podium-ranking-board"></div>
+
+    <button type="button" id="return-main-menu-btn" class="btn btn-primary">
+        Return to Menu
+    </button>
+
+</div>
+
+<!-- ============ ERROR ============ -->
+<div id="error-screen" class="container-panel hidden">
+
+    <div class="error-icon">⚠️</div>
+
+    <h1 class="error-title" id="error-title">NETWORK ERROR</h1>
+
+    <p class="error-message" id="error-message">
+        Connection to a player was lost. The game has been ended.
+    </p>
+
+    <button type="button" id="error-menu-btn" class="btn btn-danger">
+        Return to Menu
+    </button>
+
+</div>
+
+<script type="module" src="app.js"></script>
+
+</body>
+</html>
