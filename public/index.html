@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="felt">
+<html lang="en" data-theme="vicecity">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
@@ -11,6 +11,55 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
+
+<!-- ============ LOADING SCREEN (Vice City splash) ============ -->
+<div id="loading-screen">
+    <div class="vhs-overlay" aria-hidden="true"></div>
+    <div class="sunset-orb" aria-hidden="true"></div>
+    <div class="synth-grid" aria-hidden="true"></div>
+    <div class="loading-content">
+        <div class="dealer-art loading-dealer" aria-hidden="true">
+            <svg viewBox="0 0 200 320" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Neon pin-up dealer illustration">
+                <defs>
+                    <linearGradient id="neonStroke" x1="0" y1="0" x2="1" y2="1">
+                        <stop offset="0" stop-color="#ff2e88"/>
+                        <stop offset="1" stop-color="#00e5ff"/>
+                    </linearGradient>
+                    <filter id="neonGlow" x="-60%" y="-60%" width="220%" height="220%">
+                        <feGaussianBlur stdDeviation="3.5" result="b"/>
+                        <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+                    </filter>
+                </defs>
+                <g fill="none" stroke="url(#neonStroke)" stroke-width="3" stroke-linecap="round" filter="url(#neonGlow)">
+                    <!-- flowing hair -->
+                    <path d="M100 28 C 70 26 52 52 56 84 C 58 104 50 126 40 142 C 62 138 74 124 76 106"/>
+                    <path d="M100 28 C 130 26 148 52 144 84 C 142 104 150 126 160 142 C 138 138 126 124 124 106"/>
+                    <!-- face -->
+                    <path d="M100 34 C 82 34 72 50 72 68 C 72 88 84 102 100 102 C 116 102 128 88 128 68 C 128 50 118 34 100 34 Z"/>
+                    <!-- neck + shoulders -->
+                    <path d="M92 100 C 92 112 88 118 78 124 C 62 132 54 146 52 164"/>
+                    <path d="M108 100 C 108 112 112 118 122 124 C 138 132 146 146 148 164"/>
+                    <!-- arms, one on hip -->
+                    <path d="M54 164 C 50 190 56 208 74 216 C 84 220 92 218 96 212"/>
+                    <path d="M146 164 C 150 188 144 204 128 212"/>
+                    <!-- curvy torso into cocktail dress -->
+                    <path d="M52 164 C 60 176 74 182 100 182 C 126 182 140 176 148 164"/>
+                    <path d="M74 216 C 66 232 62 252 64 272 C 80 282 120 282 136 272 C 138 252 134 232 126 212"/>
+                    <!-- waist emphasis -->
+                    <path d="M76 200 C 88 206 112 206 124 200" stroke-width="2"/>
+                    <!-- legs -->
+                    <path d="M82 280 C 80 296 78 304 76 312"/>
+                    <path d="M118 280 C 120 296 122 304 124 312"/>
+                    <!-- cocktail glass in raised hand -->
+                    <path d="M40 142 L 30 120 M 22 108 L 42 108 L 32 122 Z" stroke-width="2.5"/>
+                </g>
+            </svg>
+        </div>
+        <h1 class="loading-title">THULLU</h1>
+        <p class="loading-sub">SHUFFLING THE DECK...</p>
+        <div class="loading-bar"><div class="loading-bar-fill"></div></div>
+    </div>
+</div>
 
 <!-- ============ TOP NAVIGATION ============ -->
 <nav class="top-nav">
@@ -49,8 +98,35 @@
                 </label>
             </div>
             <div class="setting-row">
+                <label for="music-toggle">🎵 Synthwave Music</label>
+                <label class="switch">
+                    <input type="checkbox" id="music-toggle" checked>
+                    <span class="slider" aria-hidden="true"></span>
+                </label>
+            </div>
+            <div class="setting-row">
+                <label for="volume-range">🔉 Volume</label>
+                <input type="range" id="volume-range" min="0" max="100" value="70">
+            </div>
+            <div class="setting-row">
+                <label for="difficulty-select">🤖 AI Difficulty</label>
+                <select id="difficulty-select">
+                    <option value="easy">Easy</option>
+                    <option value="medium">Medium</option>
+                    <option value="hard" selected>Hard</option>
+                </select>
+            </div>
+            <div class="setting-row">
+                <label for="hint-toggle">💡 Hint Glow</label>
+                <label class="switch">
+                    <input type="checkbox" id="hint-toggle">
+                    <span class="slider" aria-hidden="true"></span>
+                </label>
+            </div>
+            <div class="setting-row">
                 <label for="theme-select">🎨 Table Theme</label>
                 <select id="theme-select">
+                    <option value="vicecity" selected>Vice City</option>
                     <option value="felt">Felt Green</option>
                     <option value="midnight">Midnight</option>
                     <option value="light">Light</option>
@@ -80,6 +156,7 @@
 
     <header class="hero-header">
         <div class="hero-emblem" aria-hidden="true">♠ ♥ ♣ ♦</div>
+        <div class="dealer-art hero-dealer" aria-hidden="true"></div>
         <h1 class="game-title">THULLU</h1>
         <p class="game-subtitle">Follow suit, dodge the pile, be the first to empty your hand.</p>
     </header>
@@ -220,6 +297,15 @@
         <span class="info-chip">Highest: <span id="info-val">None</span></span>
     </div>
 
+    <div id="emote-bar" aria-label="Send a reaction">
+        <button type="button" class="emote-btn" data-emoji="😂">😂</button>
+        <button type="button" class="emote-btn" data-emoji="🔥">🔥</button>
+        <button type="button" class="emote-btn" data-emoji="😭">😭</button>
+        <button type="button" class="emote-btn" data-emoji="👏">👏</button>
+        <button type="button" class="emote-btn" data-emoji="😈">😈</button>
+        <button type="button" class="emote-btn" data-emoji="🤯">🤯</button>
+    </div>
+
     <div id="thullu-banner" class="hidden" aria-live="assertive"></div>
     <div id="round-summary" class="hidden" role="status" aria-live="polite"></div>
 
@@ -264,6 +350,12 @@
     <h1 class="gold-glow-text">🏆 GAME OVER</h1>
 
     <div id="podium-ranking-board"></div>
+
+    <p id="stats-line" class="stats-line"></p>
+
+    <button type="button" id="rematch-btn" class="btn btn-gold hidden">
+        🔁 Rematch (same table)
+    </button>
 
     <button type="button" id="return-main-menu-btn" class="btn btn-primary">
         Return to Menu

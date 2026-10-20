@@ -238,12 +238,84 @@ function nextActiveAfter(originalOrder, afterId, activeOrder) {
 }
 
 // ==========================================
+// PACING: visible trick pause ("settling")
+// When a trick completes, the table cards stay on screen for TRICK_PAUSE_MS so
+// everyone can see what was played. Only then does the executor settle the
+// trick: THUL pickup / burn, round advance, winner check, Rule 10 - the exact
+// steps the original applied immediately in applyMove.
+// ==========================================
+const TRICK_PAUSE_MS = 2200;
+
+function settleTrickState(gameState, playersMap) {
+    const s = gameState.settling;
+    if (!s) return [];
+    const pendingEvents = [];
+    let playingOrder = gameState.playingOrder || [];
+    const highestPlayerId = s.highestPlayerId;
+
+    if (s.kind === "thul") {
+        const targetHand = gameState.hands[highestPlayerId] || [];
+        thulAdd(targetHand, gameState.table || []);
+    }
+    gameState.table = [];
+    gameState.firstRound = false;
+    gameState.currSuit = "ANY";
+    gameState.roundNum = (gameState.roundNum || 1) + 1;
+    gameState.highestPlayerId = highestPlayerId;
+    gameState.currentTurnPlayerId = highestPlayerId;
+    gameState.turnInRound = 0;
+    gameState.currHighestVal = -1;
+    delete gameState.settling;
+    checkWinner(gameState, playersMap);
+    if ((gameState.result || []).length < 2) {
+        const active = gameState.playingOrder || [];
+        if (active.length && !active.includes(gameState.currentTurnPlayerId)) {
+            gameState.currentTurnPlayerId = nextActiveAfter(playingOrder, highestPlayerId, active);
+        }
+    }
+    // Rule 10 (Last Stand) for an empty-handed next leader - faithful port
+    const nextLeadHand = gameState.hands[highestPlayerId] || [];
+    if (nextLeadHand.length === 0 && (gameState.playingOrder || []).includes(highestPlayerId)) {
+        const gId = getRandom(highestPlayerId, gameState);
+        if (gId) {
+            pendingEvents.push(`🎴 Rule 10: ${playersMap[highestPlayerId]?.name || "The next leader"} had no cards, so ${playersMap[gId]?.name || "a player"} handed one over.`);
+        }
+        checkWinner(gameState, playersMap);
+    }
+    applyPendingEvents(gameState, pendingEvents);
+    return pendingEvents;
+}
+
+// Only the room executor settles (single writer). Deduped by settleSeq so both
+// the mover's client and the listener can request the same settle safely.
+const pendingSettles = {};
+function scheduleSettle(roomId, settleSeq) {
+    const key = `${roomId}:${settleSeq}`;
+    if (pendingSettles[key]) return;
+    pendingSettles[key] = true;
+    setTimeout(() => settleTrick(roomId, settleSeq), TRICK_PAUSE_MS);
+}
+async function settleTrick(roomId, settleSeq) {
+    const snapshot = await get(ref(db, `rooms/${roomId}`));
+    if (!snapshot.exists()) return;
+    const room = snapshot.val();
+    if (room.status !== "playing") return;
+    const gs = room.gameState;
+    if (!gs || !gs.settling || gs.settling.settleSeq !== settleSeq) return; // already settled
+    if (executorId(room) !== localPlayerId) return;
+    settleTrickState(gs, room.players || {});
+    await update(ref(db, `rooms/${roomId}/gameState`), gs);
+    sfx.sweep();
+}
+
+// ==========================================
 // MOVE ENGINE (identical rules to the original handleCardClick,
 // parameterized so humans AND bots execute the exact same move logic)
 // ==========================================
 function applyMove(gameState, playersMap, playerId, playerName, cardIndex) {
     const myHand = gameState.hands[playerId];
     if (!myHand || cardIndex < 0 || cardIndex >= myHand.length) return null;
+    if (gameState.settling) return null; // trick is in its visible pause - no moves until it settles
 
     const handBeforePlay = myHand.slice();
     const pendingEvents = [];
@@ -283,14 +355,10 @@ function applyMove(gameState, playersMap, playerId, playerName, cardIndex) {
             if (thulf) {
                 table.push(playedCard);
                 pendingEvents.push(`🔥 THUL! ${playerName} had no ${leadSuit} — Round 1 grace, cards discarded safely.`);
-                gameState.table = [];
-                gameState.firstRound = false;
-                gameState.currSuit = "ANY";
-                gameState.roundNum = roundNum + 1;
+                gameState.table = table;
                 gameState.highestPlayerId = highestPlayerId;
-                gameState.currentTurnPlayerId = highestPlayerId;
-                gameState.turnInRound = 0;
-                gameState.currHighestVal = -1;
+                gameState.settleSeq = (gameState.settleSeq || 0) + 1;
+                gameState.settling = { kind: "round1", highestPlayerId: highestPlayerId, settleSeq: gameState.settleSeq };
             } else {
                 if (playedCard.value > currHighestVal) {
                     highestPlayerId = playerId;
@@ -299,14 +367,10 @@ function applyMove(gameState, playersMap, playerId, playerName, cardIndex) {
                 table.push(playedCard);
                 const activeCount = playingOrder.length;
                 if (turnInRound === activeCount - 1) {
-                    gameState.table = [];
-                    gameState.firstRound = false;
-                    gameState.currSuit = "ANY";
-                    gameState.roundNum = roundNum + 1;
+                    gameState.table = table;
                     gameState.highestPlayerId = highestPlayerId;
-                    gameState.currentTurnPlayerId = highestPlayerId;
-                    gameState.turnInRound = 0;
-                    gameState.currHighestVal = -1;
+                    gameState.settleSeq = (gameState.settleSeq || 0) + 1;
+                    gameState.settling = { kind: "round1", highestPlayerId: highestPlayerId, settleSeq: gameState.settleSeq };
                 } else {
                     let nextTurnIndex = (currentTurnIndex + 1) % playingOrder.length;
                     gameState.currentTurnPlayerId = playingOrder[nextTurnIndex];
@@ -363,32 +427,11 @@ function applyMove(gameState, playersMap, playerId, playerName, cardIndex) {
                 if (myHand.length === 0) {
                     if (!contd.includes(playerId)) contd.push(playerId);
                 }
-                let targetHand = gameState.hands[highestPlayerId] || [];
-                thulAdd(targetHand, table);
-                gameState.table = [];
-                gameState.firstRound = false;
-                gameState.currSuit = "ANY";
-                gameState.roundNum = roundNum + 1;
+                gameState.table = table;
                 gameState.highestPlayerId = highestPlayerId;
-                gameState.currentTurnPlayerId = highestPlayerId;
-                gameState.turnInRound = 0;
-                gameState.currHighestVal = -1;
                 gameState.contd = contd;
-                checkWinner(gameState, playersMap);
-                if ((gameState.result || []).length < 2) {
-                    const active = gameState.playingOrder || [];
-                    if (active.length && !active.includes(gameState.currentTurnPlayerId)) {
-                        gameState.currentTurnPlayerId = nextActiveAfter(playingOrder, highestPlayerId, active);
-                    }
-                }
-                let nextLeadHand = gameState.hands[highestPlayerId] || [];
-                if (nextLeadHand.length === 0 && (gameState.playingOrder || []).includes(highestPlayerId)) {
-                    let gId = getRandom(highestPlayerId, gameState);
-                    if (gId) {
-                        pendingEvents.push(`🎴 Rule 10: ${playersMap[highestPlayerId]?.name || "The next leader"} had no cards, so ${playersMap[gId]?.name || "a player"} handed one over.`);
-                    }
-                    checkWinner(gameState, playersMap);
-                }
+                gameState.settleSeq = (gameState.settleSeq || 0) + 1;
+                gameState.settling = { kind: "thul", highestPlayerId: highestPlayerId, settleSeq: gameState.settleSeq };
             } else {
                 if (playedCard.value > currHighestVal) {
                     highestPlayerId = playerId;
@@ -400,30 +443,11 @@ function applyMove(gameState, playersMap, playerId, playerName, cardIndex) {
                 }
                 const activeCount = playingOrder.length;
                 if (turnInRound === activeCount - 1) {
-                    gameState.table = [];
-                    gameState.firstRound = false;
-                    gameState.currSuit = "ANY";
-                    gameState.roundNum = roundNum + 1;
+                    gameState.table = table;
                     gameState.highestPlayerId = highestPlayerId;
-                    gameState.currentTurnPlayerId = highestPlayerId;
-                    gameState.turnInRound = 0;
-                    gameState.currHighestVal = -1;
                     gameState.contd = contd;
-                    checkWinner(gameState, playersMap);
-                    if ((gameState.result || []).length < 2) {
-                        const active = gameState.playingOrder || [];
-                        if (active.length && !active.includes(gameState.currentTurnPlayerId)) {
-                            gameState.currentTurnPlayerId = nextActiveAfter(playingOrder, highestPlayerId, active);
-                        }
-                    }
-                    let nextLeadHand = gameState.hands[highestPlayerId] || [];
-                    if (nextLeadHand.length === 0 && (gameState.playingOrder || []).includes(highestPlayerId)) {
-                        let gId = getRandom(highestPlayerId, gameState);
-                        if (gId) {
-                            pendingEvents.push(`🎴 Rule 10: ${playersMap[highestPlayerId]?.name || "The next leader"} had no cards, so ${playersMap[gId]?.name || "a player"} handed one over.`);
-                        }
-                        checkWinner(gameState, playersMap);
-                    }
+                    gameState.settleSeq = (gameState.settleSeq || 0) + 1;
+                    gameState.settling = { kind: "burn", highestPlayerId: highestPlayerId, settleSeq: gameState.settleSeq };
                 } else {
                     let nextTurnIndex = (currentTurnIndex + 1) % playingOrder.length;
                     gameState.currentTurnPlayerId = playingOrder[nextTurnIndex];
@@ -565,11 +589,143 @@ function botChooseCard(gameState, botId, playersMap) {
     return followIdx[0]; // cannot win: duck with the lowest
 }
 
+// Easy bot: uniform random legal card (baseline difficulty).
+function botChooseCardEasy(gameState, botId) {
+    const hand = gameState.hands[botId] || [];
+    const legal = botLegalIndices(hand, gameState);
+    if (!legal.length) return -1;
+    return legal[Math.floor(Math.random() * legal.length)];
+}
+
+// Hard bot: everything the medium bot does, plus
+//  - unseen-card estimation per suit (played + own hand vs 13)
+//  - probabilistic THUL risk when a later player may be void (not just proven void)
+//  - high-card liability awareness: don't sit on the highest remaining lead-suit
+//    card when the trick may break
+//  - endgame tuning: public hand counts steer lead choice when someone is close
+//    to going out
+function botChooseCardHard(gameState, botId, playersMap) {
+    const hand = gameState.hands[botId] || [];
+    const legal = botLegalIndices(hand, gameState);
+    if (legal.length === 0) return -1;
+    if (legal.length === 1) return legal[0];
+
+    const K = buildBotKnowledge(gameState);
+    const turnInRound = gameState.turnInRound || 0;
+    const leadSuit = gameState.leadSuit || gameState.currSuit;
+    const order = gameState.playingOrder || [];
+    const myIdx = order.indexOf(botId);
+    const suits = ["Spades", "Hearts", "Diamonds", "Clubs"];
+
+    const myCount = {};
+    for (const s of suits) myCount[s] = 0;
+    for (const c of hand) myCount[c.suit]++;
+
+    const unseen = {};
+    for (const s of suits) unseen[s] = 13 - (K.playedBySuit[s] || 0) - myCount[s];
+
+    const others = order.filter(p => p !== botId);
+    const laterPlayers = [];
+    for (let k = 1; k < order.length - turnInRound; k++) {
+        const pid = order[(myIdx + k) % order.length];
+        if (pid !== botId) laterPlayers.push(pid);
+    }
+    const handSize = (pid) => ((gameState.hands || {})[pid] || []).length;
+    const minOppCards = others.length ? Math.min(...others.map(handSize)) : 99;
+
+    // Probability estimate that a player still to act is void in the lead suit
+    const voidRisk = (pid, suit) => {
+        if (K.voids[pid] && K.voids[pid][suit]) return 1;
+        const u = unseen[suit];
+        if (u <= 0) return 0.9;              // no cards of this suit left for others
+        if (u <= 2) return handSize(pid) <= 4 ? 0.5 : 0.3;
+        if (u <= 5) return handSize(pid) <= 3 ? 0.3 : 0.12;
+        return 0.03;
+    };
+    const thulRisk = laterPlayers.length
+        ? Math.max(...laterPlayers.map(pid => voidRisk(pid, leadSuit)))
+        : 0;
+
+    // highest remaining card of a suit (played cards removed); do I hold it?
+    const topRemaining = {};
+    for (const s of suits) {
+        let top = -1;
+        for (let v = 14; v >= 2; v--) {
+            const playedCount = (K.playedValues && K.playedValues[s] && K.playedValues[s][v]) || 0;
+            if (playedCount > 0) continue;
+            top = v; break;
+        }
+        topRemaining[s] = top;
+    }
+    const myHigh = {};
+    for (const s of suits) {
+        myHigh[s] = -1;
+        for (const c of hand) if (c.suit === s && c.value > myHigh[s]) myHigh[s] = c.value;
+    }
+    const byValueAsc = (a, b) => hand[a].value - hand[b].value;
+
+    if (turnInRound === 0) {
+        // LEADING
+        const suitsMap = {};
+        for (const i of legal) {
+            const s = hand[i].suit;
+            if (!suitsMap[s]) suitsMap[s] = [];
+            suitsMap[s].push(i);
+        }
+        let bestSuit = null, bestScore = -1e9;
+        for (const s of Object.keys(suitsMap)) {
+            const someoneVoid = others.some(pid => K.voids[pid] && K.voids[pid][s]);
+            const voidP = others.length ? Math.max(...others.map(pid => voidRisk(pid, s))) : 0;
+            let score = suitsMap[s].length * 2;                 // shed from the longest suit
+            if (someoneVoid) score -= 120;                      // proven void: never feed it
+            score -= voidP * 40;                                // probabilistic void risk
+            // liability: holding the top remaining card of this suit while it may break
+            if (myHigh[s] >= topRemaining[s] && myHigh[s] > 0) score -= 25 * voidP + 8;
+            score -= Math.min(...suitsMap[s].map(i => hand[i].value)) * 0.1; // lead low
+            if (minOppCards <= 2) score += unseen[s] * 1.5;     // endgame: low-variance suits
+            if (score > bestScore) { bestScore = score; bestSuit = s; }
+        }
+        const choices = (bestSuit ? suitsMap[bestSuit] : legal).sort(byValueAsc);
+        return choices[0];
+    }
+
+    const canFollow = !thul(leadSuit, hand);
+    if (!canFollow) {
+        // THUL: dump from the shortest suit; prefer dumping liability (high cards)
+        const suitsMap = {};
+        for (const i of legal) {
+            const s = hand[i].suit;
+            if (!suitsMap[s]) suitsMap[s] = [];
+            suitsMap[s].push(i);
+        }
+        let dumpSuit = null, bestDump = -1e9;
+        for (const s of Object.keys(suitsMap)) {
+            const hi = Math.max(...suitsMap[s].map(i => hand[i].value));
+            const score = -suitsMap[s].length * 10 + hi * 0.5;
+            if (score > bestDump) { bestDump = score; dumpSuit = s; }
+        }
+        return suitsMap[dumpSuit].sort((a, b) => hand[b].value - hand[a].value)[0];
+    }
+
+    // FOLLOWING SUIT
+    const currHighest = gameState.currHighestVal;
+    const followIdx = legal.slice().sort(byValueAsc);
+    const winners = followIdx.filter(i => hand[i].value > currHighest);
+    const risky = thulRisk >= 0.45;
+    if (risky) {
+        // trick may break after me: never sit on top - duck with the highest loser (sheds liability)
+        const losers = followIdx.filter(i => hand[i].value < currHighest);
+        return (losers.length ? losers[losers.length - 1] : followIdx[followIdx.length - 1]);
+    }
+    if (winners.length) return winners[0]; // safe burn: win as cheaply as possible
+    return followIdx[followIdx.length - 1]; // cannot win: dump the highest (shed liability)
+}
+
 // ==========================================
 // SOUND ENGINE (synthesized, no assets) + SETTINGS
 // ==========================================
 const settings = Object.assign(
-    { sound: true, anim: true, theme: "felt" },
+    { sound: true, anim: true, theme: "vicecity", music: true, volume: 70, difficulty: "hard", hints: false },
     JSON.parse(localStorage.getItem("thullu_settings") || "{}")
 );
 function saveSettings() { localStorage.setItem("thullu_settings", JSON.stringify(settings)); }
@@ -584,11 +740,27 @@ function applySettings() {
     if (ts) ts.value = settings.theme;
     const muteBtn = document.getElementById("mute-btn");
     if (muteBtn) muteBtn.textContent = settings.sound ? "🔊" : "🔇";
+    const mt = document.getElementById("music-toggle");
+    const vr = document.getElementById("volume-range");
+    const df = document.getElementById("difficulty-select");
+    const ht = document.getElementById("hint-toggle");
+    if (mt) mt.checked = settings.music;
+    if (vr) vr.value = settings.volume;
+    if (df) df.value = settings.difficulty;
+    if (ht) ht.checked = settings.hints;
+    if (masterGain) masterGain.gain.value = (settings.volume / 100);
+    if (!settings.sound || !settings.music) stopMusic();
 }
 
 let audioCtx = null;
+let masterGain = null;
 function ac() {
-    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        masterGain = audioCtx.createGain();
+        masterGain.gain.value = (settings.volume / 100);
+        masterGain.connect(audioCtx.destination);
+    }
     if (audioCtx.state === "suspended") audioCtx.resume();
     return audioCtx;
 }
@@ -601,7 +773,7 @@ function tone(freq, dur, type = "sine", gain = 0.12, when = 0) {
         o.type = type; o.frequency.value = freq;
         g.gain.setValueAtTime(gain, ctx.currentTime + when);
         g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + when + dur);
-        o.connect(g); g.connect(ctx.destination);
+        o.connect(g); g.connect(masterGain);
         o.start(ctx.currentTime + when); o.stop(ctx.currentTime + when + dur);
     } catch (e) { /* audio unavailable */ }
 }
@@ -614,7 +786,7 @@ function noiseBurst(dur = 0.08, gain = 0.08) {
         for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / data.length);
         const src = ctx.createBufferSource(); src.buffer = buf;
         const g = ctx.createGain(); g.gain.value = gain;
-        src.connect(g); g.connect(ctx.destination); src.start();
+        src.connect(g); g.connect(masterGain); src.start();
     } catch (e) { }
 }
 const sfx = {
@@ -623,8 +795,58 @@ const sfx = {
     turn: () => { tone(880, 0.09, "sine", 0.08); tone(1174, 0.12, "sine", 0.07, 0.09); },
     thul: () => { tone(392, 0.16, "sawtooth", 0.09); tone(261, 0.25, "sawtooth", 0.09, 0.14); },
     win: () => { [523, 659, 784, 1046].forEach((f, i) => tone(f, 0.22, "triangle", 0.10, i * 0.13)); },
-    rule10: () => tone(494, 0.15, "square", 0.06)
+    rule10: () => tone(494, 0.15, "square", 0.06),
+    sweep: () => { noiseBurst(0.22, 0.06); tone(720, 0.18, "sine", 0.04, 0.02); },
+    emote: () => tone(980, 0.08, "triangle", 0.07)
 };
+
+// ---- Synthwave background loop (original, generated at runtime - no assets) ----
+let musicPlaying = false, musicTimer = null, musicStepIdx = 0, nextNoteTime = 0;
+const BASS_LINE = [55.00, 0, 55.00, 65.41, 0, 55.00, 82.41, 73.42]; // A1 C2 E2 D2 pulse
+const LEAD_ARP = [0, 261.63, 0, 329.63, 0, 392.00, 329.63, 261.63];
+function scheduleMusic() {
+    if (!musicPlaying) return;
+    const ctx = ac();
+    while (nextNoteTime < ctx.currentTime + 0.35) {
+        const step = musicStepIdx % 8;
+        const t = nextNoteTime;
+        const bf = BASS_LINE[step];
+        if (bf) {
+            const o = ctx.createOscillator(), g = ctx.createGain(), f = ctx.createBiquadFilter();
+            o.type = "sawtooth"; o.frequency.value = bf;
+            f.type = "lowpass"; f.frequency.value = 320;
+            g.gain.setValueAtTime(0.14, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.22);
+            o.connect(f); f.connect(g); g.connect(masterGain);
+            o.start(t); o.stop(t + 0.24);
+        }
+        if (step % 2 === 0) { // kick
+            const o = ctx.createOscillator(), g = ctx.createGain();
+            o.type = "sine";
+            o.frequency.setValueAtTime(120, t); o.frequency.exponentialRampToValueAtTime(40, t + 0.12);
+            g.gain.setValueAtTime(0.20, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.13);
+            o.connect(g); g.connect(masterGain); o.start(t); o.stop(t + 0.14);
+        }
+        const lf = LEAD_ARP[step];
+        if (lf) { // neon sparkle
+            const o = ctx.createOscillator(), g = ctx.createGain();
+            o.type = "square"; o.frequency.value = lf;
+            g.gain.setValueAtTime(0.030, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.18);
+            o.connect(g); g.connect(masterGain); o.start(t); o.stop(t + 0.2);
+        }
+        nextNoteTime += 0.24;
+        musicStepIdx++;
+    }
+    musicTimer = setTimeout(scheduleMusic, 120);
+}
+function startMusic() {
+    if (musicPlaying || !settings.sound || !settings.music) return;
+    musicPlaying = true;
+    nextNoteTime = ac().currentTime + 0.05;
+    scheduleMusic();
+}
+function stopMusic() { musicPlaying = false; clearTimeout(musicTimer); }
+// browsers require a user gesture before audio: start the loop on the first interaction
+document.addEventListener("pointerdown", () => { if (settings.music && settings.sound) startMusic(); });
 
 // ==========================================
 // DOM ELEMENTS & UI CONTROL
@@ -678,15 +900,20 @@ const elements = {
     scoreboardPanel: document.getElementById("scoreboard-panel"),
     scoreboardBody: document.getElementById("scoreboard-list"),
     roundSummary: document.getElementById("round-summary"),
-    muteBtn: document.getElementById("mute-btn")
+    muteBtn: document.getElementById("mute-btn"),
+    rematchBtn: document.getElementById("rematch-btn"),
+    statsLine: document.getElementById("stats-line"),
+    emoteBar: document.getElementById("emote-bar")
 };
 
 let timerInterval = null;
 let timerSeconds = 15;
+let timerTurnToken = "";
 let lastShownEventSeq = -1;
 let lastRenderedRound = 1;
 let botActToken = "";
 let lastRoomSnapshot = null;
+let lastEventGameId = "";
 
 function showScreen(screenKey) {
     Object.keys(screens).forEach(key => {
@@ -922,6 +1149,7 @@ async function startGameWithBots(roomId) {
     playersList.forEach(p => { playersObj[p.id] = p; });
 
     const initialGameState = {
+        gameId: "g_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
         firstRound: true,
         currSuit: "Spades",
         leadSuit: "Spades",
@@ -941,6 +1169,7 @@ async function startGameWithBots(roomId) {
     await update(roomRef, {
         status: "playing",
         players: playersObj,
+        botLevel: settings.difficulty || "hard",
         gameState: initialGameState
     });
 }
@@ -1005,10 +1234,13 @@ async function executeBotMove(roomId, token) {
     const player = (room.players || {})[pid];
     if (!isAiSeat(player)) return;
     if (executorId(room) !== localPlayerId) return;
-    const liveToken = `${pid}:${gs.roundNum}:${gs.turnInRound}:${(gs.table || []).length}:${(gs.moveHistory || []).length}`;
+    const liveToken = `${gs.gameId}:${pid}:${gs.roundNum}:${gs.turnInRound}:${(gs.table || []).length}:${(gs.moveHistory || []).length}`;
     if (liveToken !== token) return; // state moved on; a newer snapshot owns this move
 
-    const idx = botChooseCard(gs, pid, room.players || {});
+    const level = room.botLevel || "hard";
+    const idx = level === "easy" ? botChooseCardEasy(gs, pid)
+        : level === "medium" ? botChooseCard(gs, pid, room.players || {})
+        : botChooseCardHard(gs, pid, room.players || {});
     if (idx < 0) return;
     const wasLeading = (gs.turnInRound || 0) === 0;
     const card = (gs.hands[pid] || [])[idx];
@@ -1016,16 +1248,23 @@ async function executeBotMove(roomId, token) {
     gs.moveHistory = (gs.moveHistory || []).concat([{ by: pid, card: { value: card.value, suit: card.suit, name: card.name }, led: wasLeading, round: gs.roundNum }]);
     await update(ref(db, `rooms/${roomId}/gameState`), gs);
     sfx.play();
+    if (gs.settling) scheduleSettle(roomId, gs.settling.settleSeq);
 }
 
 function maybeDriveAi(room) {
     const gs = room.gameState;
     if (!gs || (gs.result || []).length >= 2) return;
+    const executor = executorId(room) === localPlayerId;
+    // trick pause: the executor schedules the settle, whoever completed the trick
+    if (gs.settling) {
+        if (executor) scheduleSettle(currentRoomId, gs.settling.settleSeq);
+        return;
+    }
     const pid = gs.currentTurnPlayerId;
     const player = (room.players || {})[pid];
     if (!isAiSeat(player)) return;
-    if (executorId(room) !== localPlayerId) return;
-    const token = `${pid}:${gs.roundNum}:${gs.turnInRound}:${(gs.table || []).length}:${(gs.moveHistory || []).length}`;
+    if (!executor) return;
+    const token = `${gs.gameId}:${pid}:${gs.roundNum}:${gs.turnInRound}:${(gs.table || []).length}:${(gs.moveHistory || []).length}`;
     if (token === botActToken) return;
     botActToken = token;
     setTimeout(() => executeBotMove(currentRoomId, token), 900 + Math.random() * 900);
@@ -1040,6 +1279,11 @@ function listenToRoom(roomId) {
         }
         const room = snapshot.val();
         lastRoomSnapshot = room;
+
+        if (room.emote && room.emote.t && room.emote.t !== lastEmoteSeenT) {
+            lastEmoteSeenT = room.emote.t;
+            if (Date.now() - room.emote.t < 8000) showEmoteBubble(room, room.emote);
+        }
 
         if (room.status === "disbanded") {
             showDisbandError(room.disbandReason || "A player left the game.", room.disbandType === "network");
@@ -1123,6 +1367,7 @@ function renderGameScreen(room) {
     const playersMap = room.players || {};
     const playersList = Object.values(playersMap);
 
+    if (gameState.gameId !== lastEventGameId) { lastEventGameId = gameState.gameId; lastShownEventSeq = -1; }
     if (gameState.lastEvent && gameState.lastEvent.seq > lastShownEventSeq) {
         lastShownEventSeq = gameState.lastEvent.seq;
         showAlert(gameState.lastEvent.text);
@@ -1136,6 +1381,14 @@ function renderGameScreen(room) {
         stopTimer();
         showScreen("results");
         sfx.win();
+        recordStatsOnce(gameState);
+        if (elements.rematchBtn) {
+            elements.rematchBtn.classList.toggle("hidden", room.hostId !== localPlayerId);
+        }
+        if (elements.statsLine) {
+            const st = getStats();
+            elements.statsLine.textContent = `Your record: ${st.rank1} x Rank 1 in ${st.games} games (top-2 finish ${st.top2}x)`;
+        }
         if (elements.podiumBoard) {
             const r1 = playersMap[gameState.result[0]]?.name || "Player";
             const r2 = playersMap[gameState.result[1]]?.name || "Player";
@@ -1166,12 +1419,14 @@ function renderGameScreen(room) {
         if (isMyTurn) {
             elements.turnIndicator.textContent = "YOUR TURN! PLAY A LEGAL CARD";
             elements.turnIndicator.style.color = "#00e676";
-            startTimer();
+            const tk = `${gameState.gameId}:${currentTurnId}:${gameState.roundNum}:${gameState.turnInRound}:${(gameState.moveHistory || []).length}:${gameState.settling ? 1 : 0}`;
+            if (timerTurnToken !== tk) { timerTurnToken = tk; startTimer(); }
         } else {
             const p = playersMap[currentTurnId];
             const activeName = (p?.name || "PLAYER") + (isAiSeat(p) ? " (AI)" : "");
             elements.turnIndicator.textContent = `${activeName.toUpperCase()}'S TURN...`;
             elements.turnIndicator.style.color = "#ffd700";
+            timerTurnToken = "";
             stopTimer();
         }
     }
@@ -1186,23 +1441,36 @@ function renderGameScreen(room) {
 
     renderScoreboard(room);
 
-    let myIndex = playersList.findIndex(p => p.id === localPlayerId);
+    // Seat players around the table clockwise in actual turn order, viewer at the bottom
+    const seatOrder = gameState.playingOrder || [];
+    const orderIdx = {};
+    seatOrder.forEach((id, i) => { orderIdx[id] = i; });
+    const ordered = playersList.slice().sort((a, b) => {
+        const ai = orderIdx[a.id] !== undefined ? orderIdx[a.id] : (a.seat ?? 99);
+        const bi = orderIdx[b.id] !== undefined ? orderIdx[b.id] : (b.seat ?? 99);
+        return ai - bi;
+    });
+    let myIndex = ordered.findIndex(p => p.id === localPlayerId);
     if (myIndex === -1) myIndex = 0;
-    const leftPlayer = playersList[(myIndex + 1) % 4];
-    const topPlayer = playersList[(myIndex + 2) % 4];
-    const rightPlayer = playersList[(myIndex + 3) % 4];
+    const leftPlayer = ordered[(myIndex + 1) % 4];   // next to act sits to your left (clockwise)
+    const topPlayer = ordered[(myIndex + 2) % 4];
+    const rightPlayer = ordered[(myIndex + 3) % 4];
     renderOpponentSeat(elements.leftCardsCount, leftPlayer, gameState);
     renderOpponentSeat(elements.topCardsCount, topPlayer, gameState);
     renderOpponentSeat(elements.rightCardsCount, rightPlayer, gameState);
 
     const myHand = (gameState.hands && gameState.hands[localPlayerId]) ? gameState.hands[localPlayerId] : [];
+    let hintIdx = -1;
+    if (settings.hints && isMyTurn && !gameState.settling && myHand.length) {
+        try { hintIdx = botChooseCardHard(gameState, localPlayerId, playersMap); } catch (e) { hintIdx = -1; }
+    }
     if (elements.myCards) {
         elements.myCards.innerHTML = "";
         myHand.forEach((card, idx) => {
             const isRed = (card.suit === "Hearts" || card.suit === "Diamonds");
             const isPlayable = isMyTurn && checkValidPlay(idx, myHand, gameState);
             const cardEl = document.createElement("div");
-            cardEl.className = `card-item ${isRed ? 'red' : ''} ${isPlayable ? 'playable' : ''}`;
+            cardEl.className = `card-item ${isRed ? 'red' : ''} ${isPlayable ? 'playable' : ''} ${idx === hintIdx ? 'hint-glow' : ''}`;
             cardEl.innerHTML = `
                 <div style="font-size:0.75rem; font-weight:800;">${getValueString(card.value)}</div>
                 <div class="card-label">${getSuitSymbol(card.suit)}</div>
@@ -1320,7 +1588,82 @@ async function handleCardClick(cardIndex, room) {
     gameState.moveHistory = (gameState.moveHistory || []).concat([{ by: localPlayerId, card: { value: card.value, suit: card.suit, name: card.name }, led: wasLeading, round: gameState.roundNum }]);
     sfx.play();
     await update(ref(db, `rooms/${currentRoomId}/gameState`), gameState);
+    if (gameState.settling && executorId(room) === localPlayerId) {
+        scheduleSettle(currentRoomId, gameState.settling.settleSeq);
+    }
 }
+
+// ==========================================
+// STATS (local), EMOTES, REMATCH, LOADING SCREEN
+// ==========================================
+let lastStatsGameId = "";
+function getStats() {
+    return Object.assign({ games: 0, rank1: 0, top2: 0 }, JSON.parse(localStorage.getItem("thullu_stats") || "{}"));
+}
+function recordStatsOnce(gameState) {
+    const gid = gameState.gameId || "";
+    if (!gid || gid === lastStatsGameId) return;
+    lastStatsGameId = gid;
+    const st = getStats();
+    st.games++;
+    if (gameState.result[0] === localPlayerId) st.rank1++;
+    if (gameState.result.includes(localPlayerId)) st.top2++;
+    localStorage.setItem("thullu_stats", JSON.stringify(st));
+}
+
+let lastEmoteSeenT = 0;
+let lastEmoteSentT = 0;
+function sendEmote(emoji) {
+    if (!currentRoomId) return;
+    const now = Date.now();
+    if (now - lastEmoteSentT < 1200) return;
+    lastEmoteSentT = now;
+    sfx.emote();
+    update(ref(db, `rooms/${currentRoomId}`), { emote: { by: localPlayerId, name: humanUserName, emoji: emoji, t: now } });
+}
+function showEmoteBubble(room, emote) {
+    const gameState = room.gameState || {};
+    const playersMap = room.players || {};
+    const playersList = Object.values(playersMap);
+    const seatOrder = gameState.playingOrder || [];
+    const orderIdx = {};
+    seatOrder.forEach((id, i) => { orderIdx[id] = i; });
+    const ordered = playersList.slice().sort((a, b) => {
+        const ai = orderIdx[a.id] !== undefined ? orderIdx[a.id] : (a.seat ?? 99);
+        const bi = orderIdx[b.id] !== undefined ? orderIdx[b.id] : (b.seat ?? 99);
+        return ai - bi;
+    });
+    let myIndex = ordered.findIndex(p => p.id === localPlayerId);
+    if (myIndex === -1) myIndex = 0;
+    const senderIdx = ordered.findIndex(p => p.id === emote.by);
+    if (senderIdx === -1) return;
+    const rel = (senderIdx - myIndex + 4) % 4; // 0 bottom, 1 left, 2 top, 3 right
+    const slot = document.querySelector([".position-bottom", ".position-left", ".position-top", ".position-right"][rel]);
+    if (!slot) return;
+    const b = document.createElement("div");
+    b.className = "emote-bubble";
+    b.textContent = emote.emoji;
+    slot.appendChild(b);
+    setTimeout(() => b.remove(), 2600);
+}
+document.querySelectorAll(".emote-btn").forEach(btn => {
+    btn.addEventListener("click", () => sendEmote(btn.dataset.emoji));
+});
+
+if (elements.rematchBtn) {
+    elements.rematchBtn.addEventListener("click", () => {
+        sfx.click();
+        if (currentRoomId) startGameWithBots(currentRoomId);
+    });
+}
+
+function hideLoadingScreen() {
+    const l = document.getElementById("loading-screen");
+    if (!l) return;
+    l.classList.add("done");
+    setTimeout(() => l.remove(), 1000);
+}
+window.addEventListener("load", () => setTimeout(hideLoadingScreen, 1600));
 
 // ==========================================
 // SETTINGS / PANELS
@@ -1343,7 +1686,24 @@ const animToggle = document.getElementById("anim-toggle");
 if (animToggle) animToggle.addEventListener("change", () => { settings.anim = animToggle.checked; saveSettings(); applySettings(); });
 const themeSelect = document.getElementById("theme-select");
 if (themeSelect) themeSelect.addEventListener("change", () => { settings.theme = themeSelect.value; saveSettings(); applySettings(); });
-if (elements.muteBtn) elements.muteBtn.addEventListener("click", () => { settings.sound = !settings.sound; saveSettings(); applySettings(); });
+if (elements.muteBtn) elements.muteBtn.addEventListener("click", () => {
+    settings.sound = !settings.sound; saveSettings(); applySettings();
+    if (settings.sound && settings.music) startMusic();
+});
+const musicToggle = document.getElementById("music-toggle");
+if (musicToggle) musicToggle.addEventListener("change", () => {
+    settings.music = musicToggle.checked; saveSettings(); applySettings();
+    if (settings.music && settings.sound) startMusic();
+});
+const volumeRange = document.getElementById("volume-range");
+if (volumeRange) volumeRange.addEventListener("input", () => {
+    settings.volume = parseInt(volumeRange.value, 10); saveSettings();
+    if (masterGain) masterGain.gain.value = settings.volume / 100;
+});
+const difficultySelect = document.getElementById("difficulty-select");
+if (difficultySelect) difficultySelect.addEventListener("change", () => { settings.difficulty = difficultySelect.value; saveSettings(); applySettings(); });
+const hintToggle = document.getElementById("hint-toggle");
+if (hintToggle) hintToggle.addEventListener("change", () => { settings.hints = hintToggle.checked; saveSettings(); applySettings(); });
 document.querySelectorAll(".modal-close-btn").forEach(btn => {
     btn.addEventListener("click", () => { const m = btn.closest(".modal-overlay"); if (m) m.classList.add("hidden"); });
 });

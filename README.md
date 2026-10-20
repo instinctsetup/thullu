@@ -2,6 +2,8 @@
 
 A real-time, 4-player card-elimination game in the browser, now with **game-theory AI opponents**, a full redesign, and a polished game experience.
 
+## ▶ Play live: [thullu-8e7a0.web.app](https://thullu-8e7a0.web.app)
+
 > Upgraded edition of [ursthakurmahesh/A-four-player-card-game](https://github.com/ursthakurmahesh/A-four-player-card-game) by Mahesh Thakur & Aakash Kushwaha. Original rules and core engine (`core_engine_logic/logics.cpp`) are unchanged.
 
 ## What's new in this edition
@@ -16,7 +18,7 @@ A real-time, 4-player card-elimination game in the browser, now with **game-theo
 
 ## Play
 
-Hosted on Firebase (Spark, free tier): see the deployed link in the repo About section.
+Hosted on Firebase (Spark, free tier): **https://thullu-8e7a0.web.app**
 
 ## Rules (unchanged)
 

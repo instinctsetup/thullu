@@ -1278,3 +1278,94 @@ html.reduced-anim *, html.reduced-anim *::before, html.reduced-anim *::after{
     background:rgba(255,215,0,.1) !important;
     box-shadow:0 0 0 1px var(--gold-soft), 0 6px 18px rgba(0,0,0,.35);
 }
+
+/* ============================================================
+   VICE CITY SPLASH + NEW FEATURES (base styles; full theme below)
+   ============================================================ */
+#loading-screen {
+    position: fixed; inset: 0; z-index: 9999;
+    display: flex; align-items: center; justify-content: center;
+    background: linear-gradient(180deg, #1a0533 0%, #2d0a4e 45%, #ff2e88 78%, #ff9a3d 100%);
+    overflow: hidden;
+    transition: opacity 0.9s ease, visibility 0.9s;
+}
+#loading-screen.done { opacity: 0; visibility: hidden; pointer-events: none; }
+.vhs-overlay {
+    position: absolute; inset: 0; pointer-events: none; z-index: 4;
+    background: repeating-linear-gradient(0deg, rgba(0,0,0,0.22) 0 2px, transparent 2px 4px);
+    animation: vhsFlicker 4s infinite;
+}
+@keyframes vhsFlicker { 0%,94% { opacity: .55; } 95% { opacity: .2; } 96% { opacity: .7; } 100% { opacity: .55; } }
+.sunset-orb {
+    position: absolute; left: 50%; top: 34%; width: 340px; height: 340px;
+    transform: translate(-50%, -50%); border-radius: 50%;
+    background: linear-gradient(180deg, #ffe259 0%, #ff7b54 45%, #ff2e88 100%);
+    box-shadow: 0 0 90px 24px rgba(255, 46, 136, 0.55);
+    z-index: 1;
+}
+.sunset-orb::after {
+    content: ""; position: absolute; inset: 0; border-radius: 50%;
+    background: repeating-linear-gradient(0deg, transparent 0 18px, rgba(26,5,51,0.85) 18px 24px);
+    clip-path: inset(52% 0 0 0);
+}
+.synth-grid {
+    position: absolute; left: -25%; right: -25%; bottom: -4%; height: 46%;
+    background:
+        linear-gradient(rgba(0,229,255,0.5) 1.5px, transparent 1.5px),
+        linear-gradient(90deg, rgba(0,229,255,0.5) 1.5px, transparent 1.5px);
+    background-size: 54px 54px;
+    transform: perspective(320px) rotateX(64deg);
+    animation: gridScroll 1.6s linear infinite;
+    z-index: 2; opacity: .8;
+}
+@keyframes gridScroll { from { background-position-y: 0; } to { background-position-y: 54px; } }
+.loading-content { position: relative; z-index: 5; text-align: center; }
+.loading-dealer { width: 150px; margin: 0 auto 6px; animation: dealerSway 3.2s ease-in-out infinite; }
+.loading-dealer svg { width: 100%; height: auto; }
+@keyframes dealerSway { 0%,100% { transform: rotate(-2.5deg); } 50% { transform: rotate(2.5deg); } }
+.loading-title {
+    font-size: 4rem; letter-spacing: 0.18em; margin: 0; font-weight: 800;
+    background: linear-gradient(180deg, #fff 20%, #7df9ff 45%, #ff2e88 75%, #b3005e 100%);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    filter: drop-shadow(0 0 18px rgba(255,46,136,.75));
+}
+.loading-sub { color: #7df9ff; letter-spacing: 0.42em; font-size: 0.8rem; margin: 10px 0 18px; animation: subBlink 1.4s steps(2) infinite; }
+@keyframes subBlink { 50% { opacity: 0.35; } }
+.loading-bar { width: 220px; height: 6px; margin: 0 auto; border: 1px solid #00e5ff; border-radius: 4px; overflow: hidden; }
+.loading-bar-fill { height: 100%; width: 40%; background: linear-gradient(90deg, #00e5ff, #ff2e88); animation: loadSlide 1.2s ease-in-out infinite; }
+@keyframes loadSlide { 0% { margin-left: -40%; } 100% { margin-left: 100%; } }
+
+/* Emotes */
+#emote-bar { display: flex; gap: 8px; justify-content: center; margin: 8px 0 2px; }
+.emote-btn {
+    font-size: 1.25rem; background: rgba(0,0,0,0.35); border: 1px solid rgba(255,255,255,0.18);
+    border-radius: 10px; padding: 4px 8px; cursor: pointer; transition: transform .15s ease;
+}
+.emote-btn:hover { transform: scale(1.25) rotate(-6deg); }
+.emote-bubble {
+    position: absolute; top: -34px; left: 50%; transform: translateX(-50%);
+    font-size: 1.9rem; z-index: 30; pointer-events: none;
+    animation: emotePop 2.6s ease forwards;
+}
+.player-slot { position: relative; }
+@keyframes emotePop {
+    0% { opacity: 0; transform: translateX(-50%) scale(0.3); }
+    12% { opacity: 1; transform: translateX(-50%) scale(1.25); }
+    22% { transform: translateX(-50%) scale(1); }
+    80% { opacity: 1; }
+    100% { opacity: 0; transform: translateX(-50%) translateY(-26px) scale(1.1); }
+}
+
+/* Hint glow */
+.card-item.hint-glow {
+    outline: 3px solid #00e5ff; outline-offset: 2px;
+    box-shadow: 0 0 18px 4px rgba(0,229,255,0.65);
+    animation: hintPulse 1.1s ease-in-out infinite;
+}
+@keyframes hintPulse { 50% { box-shadow: 0 0 30px 9px rgba(0,229,255,0.9); } }
+
+/* Dealer art + stats */
+.dealer-art svg { display: block; }
+.hero-dealer { width: 120px; margin: 0 auto 8px; }
+.hero-dealer:empty { display: none; }
+.stats-line { color: #ffd700; font-weight: 600; margin: 10px 0 4px; text-align: center; }
