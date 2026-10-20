@@ -766,8 +766,11 @@ function startTimer() {
 function stopTimer() { clearInterval(timerInterval); }
 
 function detachRoomListener() {
-    if (currentRoomId && roomListener) {
-        off(ref(db, `rooms/${currentRoomId}`), 'value', roomListener);
+    // onValue returns the UNSUBSCRIBE function, not the registered callback -
+    // call it to actually detach (off() with it silently removed nothing,
+    // leaving a ghost listener that disbanded rooms right after leaving).
+    if (roomListener) {
+        roomListener();
         roomListener = null;
     }
     currentRoomId = "";
