@@ -6,15 +6,34 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebas
 import { getDatabase, ref, get, set, onValue, update, onDisconnect, off } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
-const firebaseConfig = {
-    apiKey: "AIzaSyCw2u_UHL-uygm5m_iXah8U7Ohewr3JE-0",
-    authDomain: "thullu-8e7a0.firebaseapp.com",
-    databaseURL: "https://thullu-8e7a0-default-rtdb.firebaseio.com",
-    projectId: "thullu-8e7a0",
-    storageBucket: "thullu-8e7a0.firebasestorage.app",
-    messagingSenderId: "113813136186",
-    appId: "1:113813136186:web:79fe5afd7bec0a81d56603"
-};
+// Firebase config is loaded at runtime from Firebase Hosting's reserved URL
+// ("/__/firebase/init.json") instead of being hardcoded in this repo.
+//
+// Why: GitHub secret scanning flagged the Firebase web API key that used to
+// sit here. A Firebase *web* API key is not a true secret - it identifies the
+// project to Google, and every browser client must receive it to talk to
+// Firebase, so it cannot be removed from the shipped code entirely. What
+// actually protects the project:
+//   1. Realtime Database security rules (database.rules.json): anonymous auth
+//      required, schema-validated writes, everything outside /rooms denied.
+//   2. Google Cloud API-key restrictions: the key is locked to this app's
+//      HTTP referrers and to only the Firebase APIs it needs.
+// Serving the config from the reserved Hosting URL keeps the key out of the
+// repo source while delivering the exact same values to the browser.
+//
+// Caveat: this requires the app to be served by Firebase Hosting (the live
+// site at https://thullu-8e7a0.web.app) or the local emulator
+// (`firebase emulators:start`). The top-level await guarantees no Firebase
+// call below runs before the config arrives.
+let firebaseConfig;
+try {
+    const res = await fetch("/__/firebase/init.json");
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    firebaseConfig = await res.json();
+} catch (err) {
+    document.body.innerHTML = '<div style="color:#fff;font-family:sans-serif;padding:2rem">Could not load Firebase config. This app must be served from Firebase Hosting (https://thullu-8e7a0.web.app) or the Firebase local emulator.</div>';
+    throw err;
+}
 
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
@@ -1663,7 +1682,11 @@ function hideLoadingScreen() {
     l.classList.add("done");
     setTimeout(() => l.remove(), 1000);
 }
-window.addEventListener("load", () => setTimeout(hideLoadingScreen, 1600));
+// With the top-level await above (runtime config fetch), the window "load"
+// event can fire BEFORE this module finishes evaluating, so a plain
+// load-listener would never run and the splash would never lift. Handle both.
+if (document.readyState === "complete") setTimeout(hideLoadingScreen, 1600);
+else window.addEventListener("load", () => setTimeout(hideLoadingScreen, 1600));
 
 // ==========================================
 // SETTINGS / PANELS
