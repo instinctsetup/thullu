@@ -1,10 +1,10 @@
 # ♠ THULLU — Upgraded Edition
 
-A real-time, 4-player card-elimination game in the browser, now with **game-theory AI opponents**, a full redesign, and a polished game experience.
+A real-time, 4-player card-elimination game in the browser, with **game-theory AI opponents**, a Vice City neon redesign, and a polished game experience.
 
 ## ▶ Play live: [thullu-8e7a0.web.app](https://thullu-8e7a0.web.app)
 
-> Upgraded edition of [ursthakurmahesh/A-four-player-card-game](https://github.com/ursthakurmahesh/A-four-player-card-game) by Mahesh Thakur & Aakash Kushwaha. Original rules and core engine (`core_engine_logic/logics.cpp`) are unchanged.
+> Original rules and core engine (`core_engine_logic/logics.cpp`) are unchanged from the first edition.
 
 ## What's new in this edition
 
@@ -55,5 +55,5 @@ firebase deploy               # hosting + database rules
 
 ## Credits
 
-- Original game design, C++ engine and first JS port: **Mahesh Thakur** & **Aakash Kushwaha**.
+- Original game design and C++ engine: the Thullu team.
 - Upgrade (UI redesign, AI engine, security hardening, deployment): built with Claude.

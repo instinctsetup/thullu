@@ -19,41 +19,7 @@
     <div class="synth-grid" aria-hidden="true"></div>
     <div class="loading-content">
         <div class="dealer-art loading-dealer" aria-hidden="true">
-            <svg viewBox="0 0 200 320" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Neon pin-up dealer illustration">
-                <defs>
-                    <linearGradient id="neonStroke" x1="0" y1="0" x2="1" y2="1">
-                        <stop offset="0" stop-color="#ff2e88"/>
-                        <stop offset="1" stop-color="#00e5ff"/>
-                    </linearGradient>
-                    <filter id="neonGlow" x="-60%" y="-60%" width="220%" height="220%">
-                        <feGaussianBlur stdDeviation="3.5" result="b"/>
-                        <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
-                    </filter>
-                </defs>
-                <g fill="none" stroke="url(#neonStroke)" stroke-width="3" stroke-linecap="round" filter="url(#neonGlow)">
-                    <!-- flowing hair -->
-                    <path d="M100 28 C 70 26 52 52 56 84 C 58 104 50 126 40 142 C 62 138 74 124 76 106"/>
-                    <path d="M100 28 C 130 26 148 52 144 84 C 142 104 150 126 160 142 C 138 138 126 124 124 106"/>
-                    <!-- face -->
-                    <path d="M100 34 C 82 34 72 50 72 68 C 72 88 84 102 100 102 C 116 102 128 88 128 68 C 128 50 118 34 100 34 Z"/>
-                    <!-- neck + shoulders -->
-                    <path d="M92 100 C 92 112 88 118 78 124 C 62 132 54 146 52 164"/>
-                    <path d="M108 100 C 108 112 112 118 122 124 C 138 132 146 146 148 164"/>
-                    <!-- arms, one on hip -->
-                    <path d="M54 164 C 50 190 56 208 74 216 C 84 220 92 218 96 212"/>
-                    <path d="M146 164 C 150 188 144 204 128 212"/>
-                    <!-- curvy torso into cocktail dress -->
-                    <path d="M52 164 C 60 176 74 182 100 182 C 126 182 140 176 148 164"/>
-                    <path d="M74 216 C 66 232 62 252 64 272 C 80 282 120 282 136 272 C 138 252 134 232 126 212"/>
-                    <!-- waist emphasis -->
-                    <path d="M76 200 C 88 206 112 206 124 200" stroke-width="2"/>
-                    <!-- legs -->
-                    <path d="M82 280 C 80 296 78 304 76 312"/>
-                    <path d="M118 280 C 120 296 122 304 124 312"/>
-                    <!-- cocktail glass in raised hand -->
-                    <path d="M40 142 L 30 120 M 22 108 L 42 108 L 32 122 Z" stroke-width="2.5"/>
-                </g>
-            </svg>
+            <img class="hostess-art" src="assets/hostess-welcome.webp" alt="">
         </div>
         <h1 class="loading-title">THULLU</h1>
         <p class="loading-sub">SHUFFLING THE DECK...</p>
@@ -69,7 +35,7 @@
         <button type="button" id="scoreboard-btn" class="icon-btn" aria-label="Open live scoreboard" title="Live Scoreboard">🏆</button>
         <button type="button" id="mute-btn" class="icon-btn" aria-label="Mute sound" aria-pressed="false" title="Mute / Unmute">🔊</button>
         <button type="button" id="settings-btn" class="icon-btn" aria-label="Open settings" title="Settings">⚙️</button>
-        <a href="https://github.com/ursthakurmahesh" target="_blank" rel="noopener" class="repo-link">
+        <a href="https://github.com/instinctsetup/thullu" target="_blank" rel="noopener" class="repo-link">
             <span aria-hidden="true">⌘</span><span class="repo-link-text">GitHub</span>
         </a>
     </div>
@@ -156,7 +122,7 @@
 
     <header class="hero-header">
         <div class="hero-emblem" aria-hidden="true">♠ ♥ ♣ ♦</div>
-        <div class="dealer-art hero-dealer" aria-hidden="true"></div>
+        <div class="dealer-art hero-dealer" aria-hidden="true"><img class="hostess-art" src="assets/hostess-welcome.webp" alt=""></div>
         <h1 class="game-title">THULLU</h1>
         <p class="game-subtitle">Follow suit, dodge the pile, be the first to empty your hand.</p>
     </header>
@@ -215,32 +181,7 @@
         </div>
     </details>
 
-    <div class="developers-section">
-        <div class="developers-heading">
-            <span>⚔</span>
-            <h3>DEVELOPED BY</h3>
-            <span>⚔</span>
-        </div>
-
-        <div class="developers-grid">
-            <div class="developer-card">
-                <div class="developer-avatar">MT</div>
-                <div class="developer-info">
-                    <h4>Mahesh Thakur</h4>
-                    <span class="developer-role">Game Engineer</span>
-                </div>
-            </div>
-
-            <div class="developer-card">
-                <div class="developer-avatar">AK</div>
-                <div class="developer-info">
-                    <h4>Aakash Kushwaha</h4>
-                    <span class="developer-role">Game Engineer</span>
-                </div>
-            </div>
-        </div>
-    </div>
-
+    
 </div>
 
 <!-- ============ LOBBY ============ -->
@@ -333,7 +274,7 @@
 
         <div class="player-slot position-bottom">
             <div class="player-badge profile-user">
-                👤 You (<span id="hand-count">0</span> cards)
+                👤 You · <span id="hand-count">0</span> cards
             </div>
             <div id="my-cards" class="user-cards-scroll-deck"></div>
         </div>
@@ -341,6 +282,11 @@
     </div>
 
     <div id="rule10-alert" class="hidden"></div>
+
+    <div id="hostess-overlay" class="hidden" aria-hidden="true">
+        <div class="hostess-bubble" id="hostess-bubble"></div>
+        <img id="hostess-img" src="assets/hostess-welcome.webp" alt="">
+    </div>
 
 </div>
 

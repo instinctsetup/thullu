@@ -263,7 +263,11 @@ function nextActiveAfter(originalOrder, afterId, activeOrder) {
 // trick: THUL pickup / burn, round advance, winner check, Rule 10 - the exact
 // steps the original applied immediately in applyMove.
 // ==========================================
-const TRICK_PAUSE_MS = 2200;
+const TRICK_PAUSE_MS = { thul: 3400, burn: 2400, round1: 2600 };
+function trickPauseMs(gs) {
+    const kind = gs && gs.settling && gs.settling.kind;
+    return TRICK_PAUSE_MS[kind] || TRICK_PAUSE_MS.burn;
+}
 
 function settleTrickState(gameState, playersMap) {
     const s = gameState.settling;
@@ -308,11 +312,11 @@ function settleTrickState(gameState, playersMap) {
 // Only the room executor settles (single writer). Deduped by settleSeq so both
 // the mover's client and the listener can request the same settle safely.
 const pendingSettles = {};
-function scheduleSettle(roomId, settleSeq) {
+function scheduleSettle(roomId, settleSeq, pauseMs) {
     const key = `${roomId}:${settleSeq}`;
     if (pendingSettles[key]) return;
     pendingSettles[key] = true;
-    setTimeout(() => { delete pendingSettles[key]; settleTrick(roomId, settleSeq); }, TRICK_PAUSE_MS);
+    setTimeout(() => { delete pendingSettles[key]; settleTrick(roomId, settleSeq); }, pauseMs || TRICK_PAUSE_MS.burn);
 }
 async function settleTrick(roomId, settleSeq) {
     const snapshot = await get(ref(db, `rooms/${roomId}`));
@@ -322,9 +326,41 @@ async function settleTrick(roomId, settleSeq) {
     const gs = room.gameState;
     if (!gs || !gs.settling || gs.settling.settleSeq !== settleSeq) return; // already settled
     if (executorId(room) !== localPlayerId) return;
+    const settleInfo = gs.settling ? { kind: gs.settling.kind, winnerId: gs.settling.highestPlayerId } : null;
+    const lastMover = (gs.moveHistory || []).slice(-1)[0] || null;
     settleTrickState(gs, room.players || {});
     await update(ref(db, `rooms/${roomId}/gameState`), gs);
     sfx.sweep();
+    maybeBotReaction(roomId, room, settleInfo, lastMover);
+}
+
+// Bots react like people: groan when they eat the pile, gloat when they feed it,
+// celebrate a clean burn. Throttled so the table never gets spammy.
+function maybeBotReaction(roomId, room, settleInfo, lastMover) {
+    if (!settleInfo) return;
+    const players = room.players || {};
+    const lastEmoteT = (room.emote && room.emote.t) || 0;
+    if (Date.now() - lastEmoteT < 3500) return;
+    const sendAs = (pid, emoji) => {
+        const p = players[pid];
+        if (!p) return;
+        update(ref(db, `rooms/${roomId}`), { emote: { by: pid, name: p.name, emoji: emoji, t: Date.now() } });
+    };
+    if (settleInfo.kind === "thul") {
+        const victim = players[settleInfo.winnerId];
+        const causerId = lastMover && lastMover.by !== settleInfo.winnerId ? lastMover.by : null;
+        const causer = causerId ? players[causerId] : null;
+        if (victim && isAiSeat(victim) && Math.random() < 0.55) {
+            sendAs(victim.id, ["😭", "🤯", "😤"][Math.floor(Math.random() * 3)]);
+        } else if (causer && isAiSeat(causer) && Math.random() < (victim && !isAiSeat(victim) ? 0.6 : 0.45)) {
+            sendAs(causer.id, "😈");
+        }
+    } else if (settleInfo.kind === "burn") {
+        const winner = players[settleInfo.winnerId];
+        if (winner && isAiSeat(winner) && Math.random() < 0.22) {
+            sendAs(winner.id, ["🔥", "👏", "😏"][Math.floor(Math.random() * 3)]);
+        }
+    }
 }
 
 // ==========================================
@@ -968,6 +1004,7 @@ function showAlert(message) {
     }
     if (message.includes("THUL")) {
         sfx.thul();
+        hostessEvent("shocked", hostessLine("thul"));
         if (elements.thulluBanner) {
             elements.thulluBanner.textContent = message;
             elements.thulluBanner.classList.remove("hidden");
@@ -975,6 +1012,7 @@ function showAlert(message) {
         }
     } else if (message.includes("Rule 10")) {
         sfx.rule10();
+        hostessEvent("welcome", hostessLine("rule10"));
     }
     if (elements.roundSummary) {
         elements.roundSummary.textContent = message;
@@ -1267,7 +1305,24 @@ async function executeBotMove(roomId, token) {
     gs.moveHistory = (gs.moveHistory || []).concat([{ by: pid, card: { value: card.value, suit: card.suit, name: card.name }, led: wasLeading, round: gs.roundNum }]);
     await update(ref(db, `rooms/${roomId}/gameState`), gs);
     sfx.play();
-    if (gs.settling) scheduleSettle(roomId, gs.settling.settleSeq);
+    if (gs.settling) scheduleSettle(roomId, gs.settling.settleSeq, trickPauseMs(gs));
+}
+
+// Human-feel pacing: forced moves snap out fast, real decisions take a beat -
+// longer when the choice is painful (void / THUL risk), when leading, or late
+// in the game. Never a flat metronome.
+function botThinkDelay(gs, botId) {
+    const hand = (gs.hands || {})[botId] || [];
+    let legalCount = hand.length;
+    try { legalCount = botLegalIndices(hand, gs).length; } catch (e) { }
+    if (legalCount <= 1) return 700 + Math.random() * 500;
+    let d = 1500 + Math.random() * 1300;
+    const leadSuit = gs.leadSuit || gs.currSuit;
+    if ((gs.turnInRound || 0) === 0) d += 300 + Math.random() * 900;
+    else if (thul(leadSuit, hand)) d += 700 + Math.random() * 1200;
+    if (legalCount > 6) d += 400;
+    if (hand.length > 0 && hand.length <= 4) d += 300 + Math.random() * 700;
+    return Math.min(d, 4800);
 }
 
 function maybeDriveAi(room) {
@@ -1276,7 +1331,7 @@ function maybeDriveAi(room) {
     const executor = executorId(room) === localPlayerId;
     // trick pause: the executor schedules the settle, whoever completed the trick
     if (gs.settling) {
-        if (executor) scheduleSettle(currentRoomId, gs.settling.settleSeq);
+        if (executor) scheduleSettle(currentRoomId, gs.settling.settleSeq, trickPauseMs(gs));
         return;
     }
     const pid = gs.currentTurnPlayerId;
@@ -1286,7 +1341,7 @@ function maybeDriveAi(room) {
     const token = `${gs.gameId}:${pid}:${gs.roundNum}:${gs.turnInRound}:${(gs.table || []).length}:${(gs.moveHistory || []).length}`;
     if (token === botActToken) return;
     botActToken = token;
-    setTimeout(() => executeBotMove(currentRoomId, token), 900 + Math.random() * 900);
+    setTimeout(() => executeBotMove(currentRoomId, token), botThinkDelay(gs, pid));
 }
 
 function listenToRoom(roomId) {
@@ -1380,13 +1435,23 @@ function listenToRoom(roomId) {
 }
 
 // Render Game Screen
+// Table-animation state: which direction the newest played card flies in from,
+// and the ghost cards that sweep to the trick winner (THUL) or burn away.
+let lastTableLen = 0;
+let lastTableGameId = "";
+let pendingSweep = null;
+
 function renderGameScreen(room) {
     const gameState = room.gameState;
     if (!gameState) return;
     const playersMap = room.players || {};
     const playersList = Object.values(playersMap);
 
-    if (gameState.gameId !== lastEventGameId) { lastEventGameId = gameState.gameId; lastShownEventSeq = -1; }
+    if (gameState.gameId !== lastEventGameId) {
+        lastEventGameId = gameState.gameId; lastShownEventSeq = -1;
+        lastTableGameId = ""; lastTableLen = 0; pendingSweep = null;
+        hostessEvent("welcome", hostessLine("start"), 4200);
+    }
     if (gameState.lastEvent && gameState.lastEvent.seq > lastShownEventSeq) {
         lastShownEventSeq = gameState.lastEvent.seq;
         showAlert(gameState.lastEvent.text);
@@ -1401,6 +1466,8 @@ function renderGameScreen(room) {
         showScreen("results");
         sfx.win();
         recordStatsOnce(gameState);
+        hostessLastShown = 0;
+        showHostess("smug", gameState.result[0] === localPlayerId ? hostessLine("win") : hostessLine("lose"), 5200);
         if (elements.rematchBtn) {
             elements.rematchBtn.classList.toggle("hidden", room.hostId !== localPlayerId);
         }
@@ -1439,7 +1506,7 @@ function renderGameScreen(room) {
             elements.turnIndicator.textContent = "YOUR TURN! PLAY A LEGAL CARD";
             elements.turnIndicator.style.color = "#00e676";
             const tk = `${gameState.gameId}:${currentTurnId}:${gameState.roundNum}:${gameState.turnInRound}:${(gameState.moveHistory || []).length}:${gameState.settling ? 1 : 0}`;
-            if (timerTurnToken !== tk) { timerTurnToken = tk; startTimer(); }
+            if (timerTurnToken !== tk) { timerTurnToken = tk; startTimer(); sfx.turn(); }
         } else {
             const p = playersMap[currentTurnId];
             const activeName = (p?.name || "PLAYER") + (isAiSeat(p) ? " (AI)" : "");
@@ -1504,12 +1571,16 @@ function renderGameScreen(room) {
     if (elements.handCount) elements.handCount.textContent = myHand.length.toString();
 
     if (elements.playedCardsZone) {
-        elements.playedCardsZone.innerHTML = "";
         const tableCards = gameState.table || [];
-        tableCards.forEach(card => {
+        const relDirOf = (pid) => {
+            const idx = ordered.findIndex(p => p.id === pid);
+            if (idx === -1) return "top";
+            return ["bottom", "left", "top", "right"][(idx - myIndex + 4) % 4];
+        };
+        const buildTableCard = (card, extraClass) => {
             const isRed = (card.suit === "Hearts" || card.suit === "Diamonds");
             const container = document.createElement("div");
-            container.className = "played-card-container";
+            container.className = "played-card-container" + (extraClass ? " " + extraClass : "");
             container.innerHTML = `
                 <div class="card-item ${isRed ? 'red' : ''}">
                     <div style="font-size:0.75rem; font-weight:800;">${getValueString(card.value)}</div>
@@ -1518,8 +1589,40 @@ function renderGameScreen(room) {
                 </div>
                 <div class="played-player-tag">${card.playedByName || 'Player'}</div>
             `;
-            elements.playedCardsZone.appendChild(container);
+            return container;
+        };
+        // capture the trick that is about to be swept away so we can animate it out
+        if (gameState.settling && tableCards.length) {
+            pendingSweep = {
+                cards: tableCards.map(c => ({ value: c.value, suit: c.suit, playedByName: c.playedByName })),
+                dir: relDirOf(gameState.settling.highestPlayerId),
+                kind: gameState.settling.kind
+            };
+        }
+        elements.playedCardsZone.innerHTML = "";
+        const isNewGameTable = lastTableGameId !== (gameState.gameId || "");
+        if (isNewGameTable) { lastTableGameId = gameState.gameId || ""; lastTableLen = 0; }
+        const grewBy = tableCards.length - lastTableLen;
+        tableCards.forEach((card, i) => {
+            let cls = "";
+            if (grewBy > 0 && i >= tableCards.length - grewBy) {
+                cls = "fly-from-" + relDirOf(card.playedBy);
+            }
+            elements.playedCardsZone.appendChild(buildTableCard(card, cls));
         });
+        // trick just settled: replay the captured cards as ghosts sweeping away
+        if (tableCards.length === 0 && pendingSweep) {
+            const sweep = pendingSweep;
+            pendingSweep = null;
+            sweep.cards.forEach(card => {
+                const cls = sweep.kind === "thul" ? `ghost sweep-to-${sweep.dir}` : "ghost burn-out";
+                elements.playedCardsZone.appendChild(buildTableCard(card, cls));
+            });
+            setTimeout(() => {
+                elements.playedCardsZone.querySelectorAll(".ghost").forEach(g => g.remove());
+            }, 1100);
+        }
+        lastTableLen = tableCards.length;
     }
 }
 
@@ -1564,8 +1667,9 @@ function renderOpponentSeat(container, player, gameState) {
             const pHand = (gameState.hands && gameState.hands[player.id]) ? gameState.hands[player.id] : [];
             const isTurn = gameState.currentTurnPlayerId === player.id;
             const aiTag = isAiSeat(player) ? " 🤖" : "";
-            badge.textContent = `${player.name}${aiTag} (${pHand.length}) ${isTurn ? '⏳' : ''}`;
+            badge.textContent = `${player.name}${aiTag} (${pHand.length})${isTurn ? '' : ''}`;
             badge.classList.toggle("active-turn", isTurn);
+            badge.classList.toggle("thinking", isTurn && isAiSeat(player));
         }
     }
     const count = (gameState.hands && gameState.hands[player.id]) ? gameState.hands[player.id].length : 0;
@@ -1608,7 +1712,7 @@ async function handleCardClick(cardIndex, room) {
     sfx.play();
     await update(ref(db, `rooms/${currentRoomId}/gameState`), gameState);
     if (gameState.settling && executorId(room) === localPlayerId) {
-        scheduleSettle(currentRoomId, gameState.settling.settleSeq);
+        scheduleSettle(currentRoomId, gameState.settling.settleSeq, trickPauseMs(gameState));
     }
 }
 
@@ -1628,6 +1732,42 @@ function recordStatsOnce(gameState) {
     if (gameState.result[0] === localPlayerId) st.rank1++;
     if (gameState.result.includes(localPlayerId)) st.top2++;
     localStorage.setItem("thullu_stats", JSON.stringify(st));
+}
+
+// ==========================================
+// ROXY THE DEALER - mid-game hostess cameos
+// Slides in at the moments that matter (game start, THUL, Rule 10, game over),
+// says her line, slides back out. Throttled so she stays special.
+// ==========================================
+let hostessLastShown = 0;
+function showHostess(mood, line, ms) {
+    const ov = document.getElementById("hostess-overlay");
+    const img = document.getElementById("hostess-img");
+    const bub = document.getElementById("hostess-bubble");
+    if (!ov || !img || !bub) return;
+    img.src = `assets/hostess-${mood}.webp`;
+    bub.textContent = line;
+    ov.classList.remove("hidden", "leaving");
+    clearTimeout(ov._t1); clearTimeout(ov._t2);
+    ov._t1 = setTimeout(() => ov.classList.add("leaving"), ms || 3800);
+    ov._t2 = setTimeout(() => { ov.classList.add("hidden"); ov.classList.remove("leaving"); }, (ms || 3800) + 650);
+}
+function hostessEvent(mood, line, ms) {
+    const now = Date.now();
+    if (now - hostessLastShown < 9000) return;
+    hostessLastShown = now;
+    showHostess(mood, line, ms);
+}
+const HOSTESS_LINES = {
+    start: ["New table, fresh cards. Impress me, darling 💋", "Shuffle up, sweetheart - let's see what you've got 😏"],
+    thul: ["Ooh! THULLU - somebody's eating the whole pile 😈", "That's gotta hurt! The whole table goes home 🙈"],
+    rule10: ["Last stand! Take a card, sweetheart 🎴"],
+    win: ["Mmm, we have a champion. Rematch? 😏", "What a finish! The house applauds you 👏"],
+    lose: ["Better luck next time, handsome 💋", "Rough table. Run it back? 🃏"]
+};
+function hostessLine(kind) {
+    const arr = HOSTESS_LINES[kind] || HOSTESS_LINES.start;
+    return arr[Math.floor(Math.random() * arr.length)];
 }
 
 let lastEmoteSeenT = 0;
